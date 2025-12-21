@@ -112,13 +112,13 @@ fn handle_lists(
     api: &CheckvistApi,
     config: &crate::cfg::AuthConfig,
 ) -> AppResult<()> {
-    let order = parse_order(args.list.order.as_deref())?;
     let command = args
         .command
         .unwrap_or_else(|| ListsSubcommand::Get(args.list.clone()));
 
     match command {
         ListsSubcommand::Get(args) => {
+            let order = parse_order(args.order.as_deref())?;
             let skip_stats = if args.with_stats {
                 false
             } else if args.skip_stats {

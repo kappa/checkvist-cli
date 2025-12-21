@@ -46,6 +46,35 @@ fn lists_get_fetches_lists_with_token() {
 }
 
 #[test]
+fn lists_get_respects_order_flag_with_explicit_subcommand() {
+    let temp = tempdir().expect("tempdir");
+    let auth_path = temp.path().join("auth.ini");
+    let token_path = temp.path().join("token");
+    write_auth_ini(&auth_path);
+    fs::write(&token_path, "TOK").expect("write token");
+
+    let server = StubServer::new(vec![StubResponse::json_with_header(
+        "GET",
+        "/checklists.json?order=id%3Adesc&skip_stats=true",
+        200,
+        serde_json::json!([
+            {"id": 1, "name": "List One"}
+        ]),
+        ("x-client-token", "TOK"),
+    )]);
+
+    let mut cmd = cargo_bin_cmd!("checkvist-cli");
+    cmd.args(["lists", "get", "--order", "id:desc"])
+        .env("CHECKVIST_BASE_URL", server.base_url())
+        .env("CHECKVIST_AUTH_FILE", auth_path)
+        .env("CHECKVIST_TOKEN_FILE", &token_path);
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("1\tList One"));
+}
+
+#[test]
 fn lists_get_login_when_token_missing() {
     let temp = tempdir().expect("tempdir");
     let auth_path = temp.path().join("auth.ini");
