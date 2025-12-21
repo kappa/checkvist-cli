@@ -1,4 +1,4 @@
-use checkvist_cli::cfg::ConfigLoader;
+use checkvist_cli::cfg::{ConfigLoader, MissingAuthHint};
 use checkvist_cli::token_store;
 use serial_test::serial;
 use std::env;
@@ -48,7 +48,9 @@ fn env_overrides_ini_values() {
     }
 
     let loader = ConfigLoader::new();
-    let config = loader.load(None, None, None, None).expect("config loads");
+    let config = loader
+        .load(None, None, None, None, MissingAuthHint::AuthStatus)
+        .expect("config loads");
 
     assert_eq!(config.profile, "work");
     assert_eq!(config.base_url, "https://example.test");
@@ -82,6 +84,7 @@ fn cli_overrides_take_top_priority() {
             Some("https://cli.example".into()),
             Some(auth_path.clone()),
             Some(dir.path().join("token_cli")),
+            MissingAuthHint::AuthStatus,
         )
         .expect("config loads");
 
@@ -108,6 +111,7 @@ fn missing_credentials_results_in_auth_error() {
             None,
             Some(auth_path.clone()),
             Some(dir.path().join("token")),
+            MissingAuthHint::AuthStatus,
         )
         .expect_err("should fail without remote key");
 

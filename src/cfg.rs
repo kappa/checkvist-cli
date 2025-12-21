@@ -28,6 +28,12 @@ pub struct ResolvedConfig {
 #[derive(Debug, Default)]
 pub struct ConfigLoader;
 
+#[derive(Debug, Clone, Copy)]
+pub enum MissingAuthHint {
+    AuthStatus,
+    AuthLogin,
+}
+
 impl ConfigLoader {
     pub fn new() -> Self {
         Self
@@ -124,6 +130,7 @@ impl ConfigLoader {
         base_url_override: Option<String>,
         auth_file_override: Option<PathBuf>,
         token_file_override: Option<PathBuf>,
+        hint: MissingAuthHint,
     ) -> AppResult<AuthConfig> {
         let resolved = self.resolve(
             profile_override,
@@ -149,9 +156,13 @@ impl ConfigLoader {
             }
             Err(config::ConfigError::NotFound(_)) => {
                 vlog!(1, "Auth config file not found");
-                return Err(missing_auth_error(&resolved, "auth file not found"));
+                return Err(missing_auth_error(&resolved, "auth file not found", hint));
             }
             Err(err) => {
+                if is_missing_auth_file(&err) {
+                    vlog!(1, "Auth config file not found");
+                    return Err(missing_auth_error(&resolved, "auth file not found", hint));
+                }
                 vlog!(1, "Failed to parse auth config: {}", err);
                 return Err(AppError::new(
                     ErrorKind::Local,
@@ -179,7 +190,7 @@ impl ConfigLoader {
                         v
                     })
             })
-            .ok_or_else(|| missing_auth_error(&resolved, "missing username"))?;
+            .ok_or_else(|| missing_auth_error(&resolved, "missing username", hint))?;
 
         let remote_key = env::var("CHECKVIST_REMOTE_KEY")
             .ok()
@@ -196,7 +207,7 @@ impl ConfigLoader {
                         v
                     })
             })
-            .ok_or_else(|| missing_auth_error(&resolved, "missing remote_key"))?;
+            .ok_or_else(|| missing_auth_error(&resolved, "missing remote_key", hint))?;
 
         let token2fa = env::var("CHECKVIST_TOKEN2FA")
             .ok()
@@ -242,21 +253,52 @@ fn default_token_file() -> PathBuf {
         .join("token")
 }
 
-fn missing_auth_error(resolved: &ResolvedConfig, reason: &str) -> AppError {
+fn missing_auth_error(
+    resolved: &ResolvedConfig,
+    reason: &str,
+    hint: MissingAuthHint,
+) -> AppError {
     let base = resolved.base_url.trim_end_matches('/');
     let login_url = format!("{}/auth/login", base);
     let api_key_url = format!("{}/auth/profile", base);
+
+    let next_step = match hint {
+        MissingAuthHint::AuthStatus => format!(
+            "Save your Checkvist login and Remote API key in {} or run `checkvist auth status` for setup guidance.",
+            resolved.auth_file.display(),
+        ),
+        MissingAuthHint::AuthLogin => format!(
+            "Save your Checkvist login and Remote API key in {} or run `checkvist auth login` to create it.",
+            resolved.auth_file.display(),
+        ),
+    };
 
     AppError::new(
         ErrorKind::Auth,
         format!(
             "Authentication data for profile \"{}\" is missing ({reason}).\n\
-Save your Checkvist login and Remote API key in {} or run `checkvist login` to create it.\n\
+{next_step}\n\
 Sign in at {login_url} and copy your Remote API key from {api_key_url}.",
             resolved.profile,
-            resolved.auth_file.display(),
         ),
     )
+}
+
+fn is_missing_auth_file(err: &config::ConfigError) -> bool {
+    match err {
+        config::ConfigError::FileParse { cause, .. } => {
+            if let Some(io_err) = cause.downcast_ref::<std::io::Error>() {
+                io_err.kind() == std::io::ErrorKind::NotFound
+            } else {
+                err.to_string().to_lowercase().contains("not found")
+            }
+        }
+        config::ConfigError::NotFound(_) => true,
+        config::ConfigError::Foreign(_) | config::ConfigError::Message(_) => {
+            err.to_string().to_lowercase().contains("not found")
+        }
+        _ => false,
+    }
 }
 
 pub fn write_auth_config(

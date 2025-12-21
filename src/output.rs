@@ -72,14 +72,26 @@ pub fn print_tasks(tasks: &[Value], format: OutputFormat) -> AppResult<()> {
 pub fn print_auth_status(user: &Value, format: OutputFormat) -> AppResult<()> {
     match format {
         OutputFormat::Text => {
-            let email = user
-                .get("user")
+            let user_obj = user.get("user");
+            let email = user_obj
                 .and_then(|u| u.get("email"))
-                .and_then(|e| e.as_str())
-                .unwrap_or("unknown");
+                .and_then(|e| e.as_str());
+            let login = user_obj
+                .and_then(|u| u.get("login"))
+                .and_then(|e| e.as_str());
+            let name = user_obj
+                .and_then(|u| u.get("name"))
+                .and_then(|e| e.as_str());
+            let id = user_obj.and_then(|u| u.get("id")).and_then(|e| e.as_i64());
+            let label = email
+                .or(login)
+                .or(name)
+                .map(str::to_string)
+                .or_else(|| id.map(|id| format!("user {}", id)))
+                .unwrap_or_else(|| "authenticated".to_string());
             let stdout = io::stdout();
             let mut handle = stdout.lock();
-            writeln!(handle, "ok\t{}", email)
+            writeln!(handle, "ok\t{}", label)
                 .map_err(|err| AppError::new(ErrorKind::Local, format!("write error: {}", err)))?;
         }
         OutputFormat::Json => {

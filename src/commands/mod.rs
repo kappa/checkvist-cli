@@ -47,11 +47,17 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
         return run_login(&resolved, args);
     }
 
+    let missing_auth_hint = match &command {
+        Commands::Auth(AuthCommand::Status(_)) => cfg::MissingAuthHint::AuthLogin,
+        _ => cfg::MissingAuthHint::AuthStatus,
+    };
+
     let config = loader.load(
         profile_override,
         base_url_override,
         cli.auth_file.clone(),
         cli.token_file.clone(),
+        missing_auth_hint,
     )?;
     let api = CheckvistApi::new(config.base_url.clone());
 
@@ -551,12 +557,17 @@ fn run_login(resolved: &ResolvedConfig, _args: &AuthLoginArgs) -> AppResult<()> 
         )
     })?;
 
+    let username = username.trim().to_string();
+    let remote_key = remote_key.trim().to_string();
+    let token2fa = token2fa.trim().to_string();
+    let token2fa = (!token2fa.is_empty()).then_some(token2fa);
+
     cfg::write_auth_config(
         &resolved.auth_file,
         &resolved.profile,
-        username.trim(),
-        remote_key.trim(),
-        Some(token2fa.trim()).filter(|v| !v.is_empty()),
+        &username,
+        &remote_key,
+        token2fa.as_deref(),
     )?;
 
     println!(
@@ -564,7 +575,38 @@ fn run_login(resolved: &ResolvedConfig, _args: &AuthLoginArgs) -> AppResult<()> 
         resolved.profile,
         resolved.auth_file.display()
     );
-    println!("Run `checkvist auth status` to verify your setup.");
+    println!("Verifying with `checkvist auth status`...");
+    let api = CheckvistApi::new(resolved.base_url.clone());
+    let config = crate::cfg::AuthConfig {
+        base_url: resolved.base_url.clone(),
+        profile: resolved.profile.clone(),
+        auth_file: resolved.auth_file.clone(),
+        token_file: resolved.token_file.clone(),
+        username,
+        remote_key,
+        token2fa,
+    };
+    let token = api.login(
+        &config.username,
+        &config.remote_key,
+        config.token2fa.as_deref(),
+    )?;
+    token_store::write_token(&config.token_file, &token)?;
+    let login = || {
+        api.login(
+            &config.username,
+            &config.remote_key,
+            config.token2fa.as_deref(),
+        )
+    };
+    let user = request::with_token_retry(
+        &api,
+        &config.token_file,
+        token,
+        |api, token| api.auth_status(token),
+        login,
+    )?;
+    print_auth_status(&user, cli::OutputFormat::Text)?;
 
     Ok(())
 }
