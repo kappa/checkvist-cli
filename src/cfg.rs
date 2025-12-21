@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult, ErrorKind};
+use crate::{log::redact_sensitive, vlog};
 use config::{File, FileFormat};
 use dirs::home_dir;
 use std::env;
@@ -39,21 +40,75 @@ impl ConfigLoader {
         auth_file_override: Option<PathBuf>,
         token_file_override: Option<PathBuf>,
     ) -> ResolvedConfig {
+        vlog!(1, "Config resolution starting");
+
         let profile = profile_override
-            .or_else(|| env::var("CHECKVIST_PROFILE").ok())
-            .unwrap_or_else(|| "default".to_string());
+            .clone()
+            .or_else(|| {
+                env::var("CHECKVIST_PROFILE").ok().map(|v| {
+                    vlog!(1, "  profile from CHECKVIST_PROFILE env: {}", v);
+                    v
+                })
+            })
+            .unwrap_or_else(|| {
+                vlog!(1, "  profile from default: default");
+                "default".to_string()
+            });
+        if profile_override.is_some() {
+            vlog!(1, "  profile from CLI flag: {}", profile);
+        }
 
         let base_url = base_url_override
-            .or_else(|| env::var("CHECKVIST_BASE_URL").ok())
-            .unwrap_or_else(|| "https://checkvist.com".to_string());
+            .clone()
+            .or_else(|| {
+                env::var("CHECKVIST_BASE_URL").ok().map(|v| {
+                    vlog!(1, "  base_url from CHECKVIST_BASE_URL env: {}", v);
+                    v
+                })
+            })
+            .unwrap_or_else(|| {
+                vlog!(1, "  base_url from default: https://checkvist.com");
+                "https://checkvist.com".to_string()
+            });
+        if base_url_override.is_some() {
+            vlog!(1, "  base_url from CLI flag: {}", base_url);
+        }
 
         let auth_file = auth_file_override
-            .or_else(|| env::var("CHECKVIST_AUTH_FILE").ok().map(PathBuf::from))
-            .unwrap_or_else(default_auth_file);
+            .clone()
+            .or_else(|| {
+                env::var("CHECKVIST_AUTH_FILE").ok().map(|v| {
+                    let p = PathBuf::from(&v);
+                    vlog!(1, "  auth_file from CHECKVIST_AUTH_FILE env: {}", p.display());
+                    p
+                })
+            })
+            .unwrap_or_else(|| {
+                let p = default_auth_file();
+                vlog!(1, "  auth_file from default: {}", p.display());
+                p
+            });
+        if auth_file_override.is_some() {
+            vlog!(1, "  auth_file from CLI flag: {}", auth_file.display());
+        }
 
         let token_file = token_file_override
-            .or_else(|| env::var("CHECKVIST_TOKEN_FILE").ok().map(PathBuf::from))
-            .unwrap_or_else(default_token_file);
+            .clone()
+            .or_else(|| {
+                env::var("CHECKVIST_TOKEN_FILE").ok().map(|v| {
+                    let p = PathBuf::from(&v);
+                    vlog!(1, "  token_file from CHECKVIST_TOKEN_FILE env: {}", p.display());
+                    p
+                })
+            })
+            .unwrap_or_else(|| {
+                let p = default_token_file();
+                vlog!(1, "  token_file from default: {}", p.display());
+                p
+            });
+        if token_file_override.is_some() {
+            vlog!(1, "  token_file from CLI flag: {}", token_file.display());
+        }
 
         ResolvedConfig {
             base_url,
@@ -77,6 +132,9 @@ impl ConfigLoader {
             token_file_override,
         );
 
+        vlog!(1, "Loading auth config from: {}", resolved.auth_file.display());
+        vlog!(1, "Using profile: {}", resolved.profile);
+
         let mut builder = config::Config::builder();
         builder = builder.add_source(
             File::from(resolved.auth_file.clone())
@@ -85,11 +143,16 @@ impl ConfigLoader {
         );
 
         let settings = match builder.build() {
-            Ok(settings) => settings,
+            Ok(settings) => {
+                vlog!(1, "Auth config file loaded successfully");
+                settings
+            }
             Err(config::ConfigError::NotFound(_)) => {
+                vlog!(1, "Auth config file not found");
                 return Err(missing_auth_error(&resolved, "auth file not found"));
             }
             Err(err) => {
+                vlog!(1, "Failed to parse auth config: {}", err);
                 return Err(AppError::new(
                     ErrorKind::Local,
                     format!(
@@ -103,27 +166,55 @@ impl ConfigLoader {
 
         let username = env::var("CHECKVIST_USERNAME")
             .ok()
+            .map(|v| {
+                vlog!(1, "  username from CHECKVIST_USERNAME env: {}", v);
+                v
+            })
             .or_else(|| {
                 settings
                     .get_string(&format!("{}.username", resolved.profile))
                     .ok()
+                    .map(|v| {
+                        vlog!(1, "  username from INI file: {}", v);
+                        v
+                    })
             })
             .ok_or_else(|| missing_auth_error(&resolved, "missing username"))?;
 
         let remote_key = env::var("CHECKVIST_REMOTE_KEY")
             .ok()
+            .map(|v| {
+                vlog!(1, "  remote_key from CHECKVIST_REMOTE_KEY env: {}***", &v[..3.min(v.len())]);
+                v
+            })
             .or_else(|| {
                 settings
                     .get_string(&format!("{}.remote_key", resolved.profile))
                     .ok()
+                    .map(|v| {
+                        vlog!(1, "  remote_key from INI file: {}", redact_sensitive(&v, 3));
+                        v
+                    })
             })
             .ok_or_else(|| missing_auth_error(&resolved, "missing remote_key"))?;
 
-        let token2fa = env::var("CHECKVIST_TOKEN2FA").ok().or_else(|| {
-            settings
-                .get_string(&format!("{}.token2fa", resolved.profile))
-                .ok()
-        });
+        let token2fa = env::var("CHECKVIST_TOKEN2FA")
+            .ok()
+            .map(|v| {
+                vlog!(1, "  token2fa from CHECKVIST_TOKEN2FA env: {}", redact_sensitive(&v, 2));
+                v
+            })
+            .or_else(|| {
+                settings
+                    .get_string(&format!("{}.token2fa", resolved.profile))
+                    .ok()
+                    .map(|v| {
+                        vlog!(1, "  token2fa from INI file: {}", redact_sensitive(&v, 2));
+                        v
+                    })
+            });
+
+        vlog!(1, "Auth config loaded successfully");
 
         Ok(AuthConfig {
             base_url: resolved.base_url,

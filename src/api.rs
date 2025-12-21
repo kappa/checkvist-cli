@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult, ErrorKind};
+use crate::{log::redact_sensitive, vlog};
 use serde::Deserialize;
 use serde_json::Value;
 use std::time::Duration;
@@ -47,6 +48,29 @@ impl CheckvistApi {
         }
     }
 
+    fn log_request(&self, method: &str, url: &str, headers: &[(&str, &str)], body: Option<&str>) {
+        vlog!(1, "HTTP {} {}", method, url);
+        for (key, value) in headers {
+            if key == &"X-Client-Token" {
+                vlog!(1, "  Header: {}: {}", key, redact_sensitive(value, 8));
+            } else {
+                vlog!(1, "  Header: {}: {}", key, value);
+            }
+        }
+        if let Some(body) = body {
+            vlog!(1, "  Body: {}", body);
+        }
+    }
+
+    fn log_response(&self, status: u16, body: &str) {
+        vlog!(1, "HTTP Response: {}", status);
+        if body.len() > 500 {
+            vlog!(1, "  Body: {}... ({} bytes)", &body[..500], body.len());
+        } else {
+            vlog!(1, "  Body: {}", body);
+        }
+    }
+
     pub fn login(
         &self,
         username: &str,
@@ -59,6 +83,14 @@ impl CheckvistApi {
             params.push(("token2fa", token2fa));
         }
 
+        let body_str = format!(
+            "username={}&remote_key={}{}",
+            urlencoding::encode(username),
+            redact_sensitive(remote_key, 3),
+            token2fa.map(|t| format!("&token2fa={}", redact_sensitive(t, 2))).unwrap_or_default()
+        );
+        self.log_request("POST", &url, &[("Accept", "application/json")], Some(&body_str));
+
         let response = self
             .agent
             .post(&url)
@@ -66,7 +98,17 @@ impl CheckvistApi {
             .send_form(&params)
             .map_err(map_network_error)?;
 
-        let parsed: TokenResponse = response.into_json().map_err(|err| {
+        let status = response.status();
+        let body = response.into_string().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("failed to read login response: {}", err),
+            )
+        })?;
+
+        self.log_response(status, &body);
+
+        let parsed: TokenResponse = serde_json::from_str(&body).map_err(|err| {
             AppError::new(
                 ErrorKind::ApiData,
                 format!("invalid login response: {}", err),
@@ -77,6 +119,14 @@ impl CheckvistApi {
 
     pub fn refresh_token(&self, token: &str) -> AppResult<String> {
         let url = format!("{}/auth/refresh_token.json?version=2", self.base_url);
+
+        self.log_request(
+            "POST",
+            &url,
+            &[("Accept", "application/json"), ("X-Client-Token", token)],
+            None,
+        );
+
         let response = self
             .agent
             .post(&url)
@@ -85,7 +135,17 @@ impl CheckvistApi {
             .call()
             .map_err(map_network_error)?;
 
-        let parsed: TokenResponse = response.into_json().map_err(|err| {
+        let status = response.status();
+        let body = response.into_string().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("failed to read refresh response: {}", err),
+            )
+        })?;
+
+        self.log_response(status, &body);
+
+        let parsed: TokenResponse = serde_json::from_str(&body).map_err(|err| {
             AppError::new(
                 ErrorKind::ApiData,
                 format!("invalid refresh response: {}", err),

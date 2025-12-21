@@ -1,0 +1,417 @@
+.TH CHECKVIST-CLI 1 "2025" "checkvist-cli 0.1.0" "User Commands"
+.SH NAME
+checkvist-cli \- Command-line interface for Checkvist task management
+.SH SYNOPSIS
+.B checkvist-cli
+[\fIGLOBAL OPTIONS\fR]
+.I COMMAND
+[\fICOMMAND OPTIONS\fR]
+.SH DESCRIPTION
+.B checkvist-cli
+is a synchronous Rust CLI that provides a clean interface to the Checkvist Open API for managing checklists, tasks, and notes. It supports multiple profiles, automatic token refresh, and both text and JSON output formats.
+.SH GLOBAL OPTIONS
+.TP
+.BR \-\-format " " \fIFORMAT\fR
+Output format: \fBtext\fR (default) or \fBjson\fR. Text format uses tab-separated values. JSON format wraps results in objects with descriptive keys.
+.TP
+.BR \-\-profile " " \fIPROFILE\fR
+Configuration profile name (default: \fBdefault\fR). Profiles are defined in the auth.ini file and allow managing multiple Checkvist accounts.
+.TP
+.BR \-\-base\-url " " \fIURL\fR
+Checkvist API base URL (default: \fBhttps://checkvist.com\fR). Override for testing or self-hosted instances.
+.TP
+.BR \-\-auth\-file " " \fIPATH\fR
+Path to authentication configuration file (default: \fB~/.checkvist/auth.ini\fR). Contains username and remote API key.
+.TP
+.BR \-\-token\-file " " \fIPATH\fR
+Path to token file (default: \fB~/.checkvist/token\fR). Stores the session token, automatically refreshed when expired.
+.TP
+.BR \-v ", " \-\-verbose
+Increase verbosity. Can be specified multiple times (\fB\-vv\fR, \fB\-vvv\fR). Shows configuration loading and HTTP request/response details with sensitive data redacted.
+.SH COMMANDS
+.SS AUTH COMMANDS
+.TP
+.B auth login
+Interactive authentication setup. Prompts for Checkvist username, remote API key, and optional 2FA token. Creates the auth.ini file with proper permissions (0600 on Unix).
+.TP
+.B auth status
+Verify authentication token and display current user information. Automatically refreshes expired tokens. Output format controlled by \fB\-\-format\fR flag.
+.SS LIST COMMANDS
+.TP
+.B lists
+.TQ
+.B lists get
+List all checklists. Supports filtering and ordering options.
+.RS
+.TP
+.B \-\-archived
+Include archived lists only.
+.TP
+.B \-\-order " " \fIORDER\fR
+Sort order: \fBid:asc\fR, \fBid:desc\fR, \fBupdated_at:asc\fR, or \fBupdated_at:desc\fR.
+.TP
+.B \-\-with\-stats
+Include statistics in the response (default: skip stats for performance).
+.TP
+.B \-\-skip\-stats
+Explicitly skip statistics (conflicts with \fB\-\-with\-stats\fR).
+.RE
+.TP
+.B lists create " " \fINAME\fR
+Create a new checklist with the specified name.
+.TP
+.B lists delete " " \fILIST_ID\fR
+Delete an empty checklist. Fails if the list contains tasks.
+.TP
+.B lists update " " \fILIST_ID\fR " " [\fIOPTIONS\fR]
+Update checklist metadata.
+.RS
+.TP
+.B \-\-archive
+Archive the checklist (conflicts with \fB\-\-unarchive\fR).
+.TP
+.B \-\-unarchive
+Unarchive the checklist (conflicts with \fB\-\-archive\fR).
+.TP
+.B \-\-public
+Make the checklist public (conflicts with \fB\-\-private\fR).
+.TP
+.B \-\-private
+Make the checklist private (conflicts with \fB\-\-public\fR).
+.RE
+.TP
+.B lists show " " \fILIST_ID\fR " " [\fIOPTIONS\fR]
+Show checklist metadata or its tasks.
+.RS
+.TP
+.B \-\-tasks
+Show tasks instead of metadata (equivalent to \fBtasks get\fR).
+.RE
+.SS TASK COMMANDS
+.TP
+.B tasks get " " \fB\-\-list\-id\fR " " \fILIST_ID\fR
+List all tasks in a checklist. Text format displays hierarchical tree structure with indentation showing parent-child relationships.
+.TP
+.B tasks create " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-content\fR " " \fICONTENT\fR " " [\fIOPTIONS\fR]
+Create a new task in a checklist.
+.RS
+.TP
+.B \-\-parent\-id " " \fIPARENT_ID\fR
+Optional parent task ID for creating subtasks.
+.RE
+.TP
+.B tasks update " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR " " [\fIOPTIONS\fR]
+Update an existing task. At least one option must be provided.
+.RS
+.TP
+.B \-\-content " " \fICONTENT\fR
+New task content/text.
+.TP
+.B \-\-status " " \fISTATUS\fR
+Task status: \fBopen\fR or \fBdone\fR.
+.TP
+.B \-\-parent\-id " " \fIPARENT_ID\fR
+Move task under a different parent.
+.RE
+.TP
+.B tasks remove " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR
+Delete a task from a checklist.
+.SS NOTE COMMANDS
+.TP
+.B notes
+.TQ
+.B notes list " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR
+List all notes for a task.
+.TP
+.B notes create " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR " " \fB\-\-text\fR " " \fITEXT\fR
+Create a new note for a task.
+.TP
+.B notes update " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR " " \fB\-\-note\-id\fR " " \fINOTE_ID\fR " " [\fIOPTIONS\fR]
+Update an existing note.
+.RS
+.TP
+.B \-\-text " " \fITEXT\fR
+New note text.
+.RE
+.TP
+.B notes remove " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR " " \fB\-\-note\-id\fR " " \fINOTE_ID\fR
+Delete a note from a task.
+.SS BACKUP COMMAND
+.TP
+.B backup " " [\fIOPTIONS\fR]
+Create a backup of all checklists in OPML format.
+.RS
+.TP
+.B \-\-output " " \fIDIR\fR
+Output directory (default: current directory).
+.TP
+.B \-\-date
+Add date suffix to backup filename.
+.TP
+.B \-\-nolog
+Suppress progress logging to stderr.
+.RE
+.SH CONFIGURATION
+.SS Authentication File (~/.checkvist/auth.ini)
+INI format file containing credentials for one or more profiles:
+.PP
+.nf
+.RS
+[default]
+username = user@example.com
+remote_key = YOUR_API_KEY
+# token2fa = 123456  # Optional, only if 2FA enabled
+
+[work]
+username = user@company.com
+remote_key = WORK_API_KEY
+.RE
+.fi
+.PP
+File permissions should be 0600 on Unix systems. Created automatically by \fBauth login\fR command.
+.SS Token File (~/.checkvist/token)
+Plain text file containing a single line with the current session token. Automatically created and refreshed. Do not edit manually.
+.SS Environment Variables
+Configuration can be overridden via environment variables:
+.TP
+.B CHECKVIST_PROFILE
+Profile name (overrides \fB\-\-profile\fR default).
+.TP
+.B CHECKVIST_BASE_URL
+API base URL (overrides \fB\-\-base\-url\fR default).
+.TP
+.B CHECKVIST_AUTH_FILE
+Path to auth.ini file.
+.TP
+.B CHECKVIST_TOKEN_FILE
+Path to token file.
+.TP
+.B CHECKVIST_USERNAME
+Username (overrides value from auth.ini).
+.TP
+.B CHECKVIST_REMOTE_KEY
+Remote API key (overrides value from auth.ini).
+.TP
+.B CHECKVIST_TOKEN2FA
+Two-factor authentication token (optional).
+.PP
+Configuration precedence (highest to lowest):
+.RS 4
+1. Command-line flags
+.br
+2. Environment variables
+.br
+3. INI file profile section
+.br
+4. Built-in defaults
+.RE
+.SH TOKEN LIFECYCLE
+.B checkvist-cli
+automatically manages authentication tokens:
+.IP 1. 4
+If no token file exists, logs in using username and remote_key from auth.ini
+.IP 2. 4
+On 401/403 responses, attempts to refresh the token
+.IP 3. 4
+If refresh fails, performs full re-login
+.IP 4. 4
+Retries the original request with the new token
+.PP
+This ensures commands work seamlessly without manual token management.
+.SH OUTPUT FORMATS
+.SS Text Format
+Default format. Tab-separated values, one item per line:
+.PP
+.nf
+.RS
+12345<TAB>My Checklist Name
+67890<TAB>Another Checklist
+.RE
+.fi
+.PP
+Tasks are displayed with hierarchical indentation (2 spaces per level):
+.PP
+.nf
+.RS
+100<TAB>Parent Task
+  101<TAB>Child Task
+  102<TAB>Another Child
+    103<TAB>Grandchild Task
+.RE
+.fi
+.SS JSON Format
+Wraps results in descriptive objects:
+.PP
+.nf
+.RS
+{
+  "lists": [
+    { "id": 12345, "name": "My Checklist", ... },
+    { "id": 67890, "name": "Another Checklist", ... }
+  ]
+}
+.RE
+.fi
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 2
+Command-line argument error (clap parsing failure)
+.TP
+.B 3
+Authentication error (missing credentials, login/refresh rejected)
+.TP
+.B 4
+Network/transport error (connection failure, timeout)
+.TP
+.B 5
+API/data error (unexpected HTTP status, invalid JSON)
+.TP
+.B 6
+Local error (config file parse error, filesystem error)
+.SH EXAMPLES
+.SS Initial Setup
+.PP
+.nf
+.RS
+# Interactive credential setup
+checkvist-cli auth login
+
+# Verify authentication
+checkvist-cli auth status
+.RE
+.fi
+.SS Working with Lists
+.PP
+.nf
+.RS
+# List all checklists
+checkvist-cli lists
+
+# List with JSON output
+checkvist-cli --format json lists get
+
+# List archived checklists, ordered by update time
+checkvist-cli lists get --archived --order updated_at:desc
+
+# Create a new list
+checkvist-cli lists create "My TODO List"
+
+# Archive a list
+checkvist-cli lists update 12345 --archive
+
+# Delete an empty list
+checkvist-cli lists delete 12345
+.RE
+.fi
+.SS Working with Tasks
+.PP
+.nf
+.RS
+# List all tasks in a checklist
+checkvist-cli tasks get --list-id 12345
+
+# Create a task
+checkvist-cli tasks create --list-id 12345 --content "Buy milk"
+
+# Create a subtask
+checkvist-cli tasks create --list-id 12345 --content "2% milk" --parent-id 100
+
+# Mark task as done
+checkvist-cli tasks update --list-id 12345 --task-id 100 --status done
+
+# Update task content
+checkvist-cli tasks update --list-id 12345 --task-id 100 --content "Buy organic milk"
+
+# Delete a task
+checkvist-cli tasks remove --list-id 12345 --task-id 100
+.RE
+.fi
+.SS Working with Notes
+.PP
+.nf
+.RS
+# List notes for a task
+checkvist-cli notes --list-id 12345 --task-id 100
+
+# Add a note to a task
+checkvist-cli notes create --list-id 12345 --task-id 100 --text "Remember to check expiration date"
+
+# Update a note
+checkvist-cli notes update --list-id 12345 --task-id 100 --note-id 5 --text "Updated note text"
+
+# Delete a note
+checkvist-cli notes remove --list-id 12345 --task-id 100 --note-id 5
+.RE
+.fi
+.SS Multiple Profiles
+.PP
+.nf
+.RS
+# Use work profile
+checkvist-cli --profile work lists
+
+# Use with environment variable
+export CHECKVIST_PROFILE=work
+checkvist-cli lists
+.RE
+.fi
+.SS Verbose Logging
+.PP
+.nf
+.RS
+# Show configuration loading and HTTP traces
+checkvist-cli -v lists
+
+# Even more verbose (shows request/response bodies)
+checkvist-cli -vv auth status
+.RE
+.fi
+.SS Backup
+.PP
+.nf
+.RS
+# Backup all lists to current directory
+checkvist-cli backup
+
+# Backup with date suffix
+checkvist-cli backup --date --output ~/backups
+.RE
+.fi
+.SH FILES
+.TP
+.B ~/.checkvist/auth.ini
+Default authentication configuration file
+.TP
+.B ~/.checkvist/token
+Default token storage file
+.SH NOTES
+.IP \(bu 2
+Token and remote_key are never printed in logs (redacted with \fB***\fR)
+.IP \(bu 2
+Commands use synchronous HTTP (no async runtime) for simplicity and portability
+.IP \(bu 2
+Task hierarchy is determined by \fBparent_id\fR relationships
+.IP \(bu 2
+Deleting a list requires it to be empty (no tasks)
+.IP \(bu 2
+All API interactions respect the Checkvist Open API v2
+.SH GETTING YOUR API KEY
+.IP 1. 4
+Visit https://checkvist.com/auth/login and sign in
+.IP 2. 4
+Go to https://checkvist.com/auth/profile
+.IP 3. 4
+Copy your "Remote API key"
+.IP 4. 4
+Run \fBcheckvist-cli auth login\fR and paste the key when prompted
+.SH SEE ALSO
+Full API documentation: https://checkvist.com/auth/api
+.PP
+Project repository: https://github.com/kappa/checkvist-cli
+.SH AUTHOR
+Written using the Claude Code CLI tool.
+.SH COPYRIGHT
+Copyright \(co 2025. Licensed under terms specified in the project repository.

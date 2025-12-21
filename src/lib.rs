@@ -3,6 +3,7 @@ pub mod cfg;
 pub mod cli;
 pub mod commands;
 pub mod error;
+pub mod log;
 pub mod output;
 pub mod token_store;
 
@@ -13,6 +14,7 @@ use clap::Parser;
 
 pub fn run() -> Result<(), AppError> {
     let cli = Cli::parse();
+    log::init(cli.verbose);
     dispatch(cli)
 }
 
