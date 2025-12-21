@@ -2,6 +2,7 @@ use crate::api::CheckvistApi;
 use crate::error::{AppResult, ErrorKind};
 use crate::token_store;
 use serde_json::Value;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 pub fn with_token_retry<T>(
@@ -42,12 +43,64 @@ pub fn with_token_retry<T>(
 }
 
 pub fn format_lists(lists: &[Value]) -> Vec<String> {
-    lists
-        .iter()
-        .filter_map(|item| {
-            let id = item.get("id")?.as_i64()?;
-            let name = item.get("name")?.as_str()?;
-            Some(format!("{}\t{}", id, name))
-        })
-        .collect()
+    lists.iter().filter_map(format_list_line).collect()
+}
+
+pub fn format_list_line(item: &Value) -> Option<String> {
+    let id = item.get("id")?.as_i64()?;
+    let name = item.get("name")?.as_str()?;
+    Some(format!("{}\t{}", id, name))
+}
+
+pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
+    let mut children: HashMap<Option<i64>, Vec<usize>> = HashMap::new();
+    let mut all_ids: HashSet<i64> = HashSet::new();
+
+    for task in tasks {
+        if let Some(id) = task.get("id").and_then(|v| v.as_i64()) {
+            all_ids.insert(id);
+        }
+    }
+
+    for (idx, task) in tasks.iter().enumerate() {
+        if let Some(_id) = task.get("id").and_then(|v| v.as_i64()) {
+            let parent = task
+                .get("parent_id")
+                .and_then(|v| v.as_i64())
+                .filter(|pid| all_ids.contains(pid));
+            children.entry(parent).or_default().push(idx);
+            // ensure we always have an entry for root even if child refers to missing parent
+            if parent.is_none() {
+                children.entry(None).or_default();
+            }
+        }
+    }
+
+    fn walk(
+        tasks: &[Value],
+        children: &HashMap<Option<i64>, Vec<usize>>,
+        parent: Option<i64>,
+        depth: usize,
+        lines: &mut Vec<String>,
+    ) {
+        if let Some(indices) = children.get(&parent) {
+            for idx in indices {
+                if let Some(task) = tasks.get(*idx) {
+                    if let (Some(id), Some(content)) = (
+                        task.get("id").and_then(|v| v.as_i64()),
+                        task.get("content").and_then(|v| v.as_str()),
+                    ) {
+                        let indent = "  ".repeat(depth);
+                        lines.push(format!("{}{}\t{}", indent, id, content));
+                        walk(tasks, children, Some(id), depth + 1, lines);
+                    }
+                }
+            }
+        }
+    }
+
+    // root tasks: parent None or parent not found
+    let mut lines = Vec::new();
+    walk(tasks, &children, None, 0, &mut lines);
+    lines
 }

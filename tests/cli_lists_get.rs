@@ -24,7 +24,7 @@ fn lists_get_fetches_lists_with_token() {
 
     let server = StubServer::new(vec![StubResponse::json_with_header(
         "GET",
-        "/checklists.json",
+        "/checklists.json?skip_stats=true",
         200,
         serde_json::json!([
             {"id": 1, "name": "List One"},
@@ -46,6 +46,35 @@ fn lists_get_fetches_lists_with_token() {
 }
 
 #[test]
+fn lists_get_respects_order_flag_with_explicit_subcommand() {
+    let temp = tempdir().expect("tempdir");
+    let auth_path = temp.path().join("auth.ini");
+    let token_path = temp.path().join("token");
+    write_auth_ini(&auth_path);
+    fs::write(&token_path, "TOK").expect("write token");
+
+    let server = StubServer::new(vec![StubResponse::json_with_header(
+        "GET",
+        "/checklists.json?order=id%3Adesc&skip_stats=true",
+        200,
+        serde_json::json!([
+            {"id": 1, "name": "List One"}
+        ]),
+        ("x-client-token", "TOK"),
+    )]);
+
+    let mut cmd = cargo_bin_cmd!("checkvist-cli");
+    cmd.args(["lists", "get", "--order", "id:desc"])
+        .env("CHECKVIST_BASE_URL", server.base_url())
+        .env("CHECKVIST_AUTH_FILE", auth_path)
+        .env("CHECKVIST_TOKEN_FILE", &token_path);
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("1\tList One"));
+}
+
+#[test]
 fn lists_get_login_when_token_missing() {
     let temp = tempdir().expect("tempdir");
     let auth_path = temp.path().join("auth.ini");
@@ -62,7 +91,7 @@ fn lists_get_login_when_token_missing() {
         .with_body_check("username=user%40example.com&remote_key=REMOTE"),
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             200,
             serde_json::json!([
                 {"id": 3, "name": "Work"}
@@ -96,7 +125,7 @@ fn lists_get_refresh_on_403_then_retry() {
     let server = StubServer::new(vec![
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             403,
             serde_json::json!({"error": "expired"}),
             ("x-client-token", "OLD"),
@@ -110,7 +139,7 @@ fn lists_get_refresh_on_403_then_retry() {
         ),
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             200,
             serde_json::json!([
                 {"id": 5, "name": "After Refresh"}
@@ -144,7 +173,7 @@ fn lists_get_relogin_when_refresh_fails() {
     let server = StubServer::new(vec![
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             401,
             serde_json::json!({"error": "expired"}),
             ("x-client-token", "OLD"),
@@ -165,7 +194,7 @@ fn lists_get_relogin_when_refresh_fails() {
         .with_body_check("username=user%40example.com&remote_key=REMOTE"),
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             200,
             serde_json::json!([
                 {"id": 8, "name": "After Relogin"}
@@ -198,7 +227,7 @@ fn lists_get_json_output_format() {
 
     let server = StubServer::new(vec![StubResponse::json_with_header(
         "GET",
-        "/checklists.json",
+        "/checklists.json?skip_stats=true",
         200,
         serde_json::json!([
             {"id": 9, "name": "Json"}
