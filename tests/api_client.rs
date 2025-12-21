@@ -44,7 +44,7 @@ fn get_checklists_uses_token_header() {
 
     let server = StubServer::new(vec![StubResponse::json_with_header(
         "GET",
-        "/checklists.json?order=id%3Aasc",
+        "/checklists.json?order=id%3Aasc&skip_stats=true",
         200,
         response_body,
         ("x-client-token", "MYTOKEN"),
@@ -52,7 +52,7 @@ fn get_checklists_uses_token_header() {
 
     let api = CheckvistApi::new(server.base_url());
     let lists = api
-        .get_checklists("MYTOKEN", Some(false), Some(Order::IdAsc), Some(false))
+        .get_checklists("MYTOKEN", Some(false), Some(Order::IdAsc), Some(true))
         .expect("lists succeed");
 
     assert_eq!(lists.len(), 2);

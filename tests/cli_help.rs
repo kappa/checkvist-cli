@@ -26,7 +26,7 @@ fn lists_get_help_shows_options() {
         .success()
         .stdout(predicate::str::contains("--archived"))
         .stdout(predicate::str::contains("--order <ORDER>"))
-        .stdout(predicate::str::contains("--skip-stats"));
+        .stdout(predicate::str::contains("--with-stats"));
 }
 
 #[test]

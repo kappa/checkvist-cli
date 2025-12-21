@@ -9,6 +9,7 @@ pub enum Order {
     IdAsc,
     IdDesc,
     UpdatedAtAsc,
+    UpdatedAtDesc,
 }
 
 impl Order {
@@ -17,6 +18,7 @@ impl Order {
             Order::IdAsc => "id:asc",
             Order::IdDesc => "id:desc",
             Order::UpdatedAtAsc => "updated_at:asc",
+            Order::UpdatedAtDesc => "updated_at:desc",
         }
     }
 }
@@ -138,6 +140,208 @@ impl CheckvistApi {
                 "expected array of lists from API",
             )),
         }
+    }
+
+    pub fn create_checklist(&self, token: &str, name: &str) -> AppResult<Value> {
+        let url = format!("{}/checklists.json", self.base_url);
+        let response = self
+            .agent
+            .post(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .send_form(&[("name", name)])
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from checklist create: {}", err),
+            )
+        })
+    }
+
+    pub fn delete_checklist(&self, token: &str, list_id: i64) -> AppResult<()> {
+        let url = format!("{}/checklists/{}.json", self.base_url, list_id);
+        self.agent
+            .delete(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        Ok(())
+    }
+
+    pub fn update_checklist(
+        &self,
+        token: &str,
+        list_id: i64,
+        archived: Option<bool>,
+        public: Option<bool>,
+    ) -> AppResult<Value> {
+        let url = format!("{}/checklists/{}.json", self.base_url, list_id);
+        let mut params: Vec<(&str, String)> = Vec::new();
+        if let Some(archived) = archived {
+            params.push(("archived", archived.to_string()));
+        }
+        if let Some(public) = public {
+            params.push(("public", public.to_string()));
+        }
+
+        let param_refs: Vec<(&str, &str)> = params
+            .iter()
+            .map(|(k, v)| (*k, v.as_str()))
+            .collect();
+
+        let response = self
+            .agent
+            .put(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .send_form(&param_refs)
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from checklist update: {}", err),
+            )
+        })
+    }
+
+    pub fn get_checklist(&self, token: &str, list_id: i64) -> AppResult<Value> {
+        let url = format!("{}/checklists/{}.json", self.base_url, list_id);
+        let response = self
+            .agent
+            .get(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from checklist get: {}", err),
+            )
+        })
+    }
+
+    pub fn get_tasks(&self, token: &str, list_id: i64) -> AppResult<Vec<Value>> {
+        let url = format!("{}/checklists/{}/tasks.json", self.base_url, list_id);
+        let response = self
+            .agent
+            .get(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        let value: serde_json::Value = response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from tasks endpoint: {}", err),
+            )
+        })?;
+
+        match value {
+            Value::Array(items) => Ok(items),
+            _ => Err(AppError::new(
+                ErrorKind::ApiData,
+                "expected array of tasks from API",
+            )),
+        }
+    }
+
+    pub fn create_task(
+        &self,
+        token: &str,
+        list_id: i64,
+        content: &str,
+        parent_id: Option<i64>,
+    ) -> AppResult<Value> {
+        let url = format!("{}/checklists/{}/tasks.json", self.base_url, list_id);
+        let mut params: Vec<(&str, String)> = vec![("content", content.to_string())];
+        if let Some(parent_id) = parent_id {
+            params.push(("parent_id", parent_id.to_string()));
+        }
+        let param_refs: Vec<(&str, &str)> = params
+            .iter()
+            .map(|(k, v)| (*k, v.as_str()))
+            .collect();
+        let response = self
+            .agent
+            .post(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .send_form(&param_refs)
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from task create: {}", err),
+            )
+        })
+    }
+
+    pub fn update_task(
+        &self,
+        token: &str,
+        list_id: i64,
+        task_id: i64,
+        content: Option<&str>,
+        status: Option<&str>,
+        parent_id: Option<i64>,
+    ) -> AppResult<Value> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}.json",
+            self.base_url, list_id, task_id
+        );
+        let mut params: Vec<(&str, String)> = Vec::new();
+        if let Some(content) = content {
+            params.push(("content", content.to_string()));
+        }
+        if let Some(status) = status {
+            params.push(("status", status.to_string()));
+        }
+        if let Some(parent_id) = parent_id {
+            params.push(("parent_id", parent_id.to_string()));
+        }
+        let param_refs: Vec<(&str, &str)> = params
+            .iter()
+            .map(|(k, v)| (*k, v.as_str()))
+            .collect();
+
+        let response = self
+            .agent
+            .put(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .send_form(&param_refs)
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from task update: {}", err),
+            )
+        })
+    }
+
+    pub fn delete_task(&self, token: &str, list_id: i64, task_id: i64) -> AppResult<()> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}.json",
+            self.base_url, list_id, task_id
+        );
+        self.agent
+            .delete(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        Ok(())
     }
 
     pub fn auth_status(&self, token: &str) -> AppResult<Value> {

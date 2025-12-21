@@ -24,7 +24,7 @@ fn lists_get_fetches_lists_with_token() {
 
     let server = StubServer::new(vec![StubResponse::json_with_header(
         "GET",
-        "/checklists.json",
+        "/checklists.json?skip_stats=true",
         200,
         serde_json::json!([
             {"id": 1, "name": "List One"},
@@ -62,7 +62,7 @@ fn lists_get_login_when_token_missing() {
         .with_body_check("username=user%40example.com&remote_key=REMOTE"),
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             200,
             serde_json::json!([
                 {"id": 3, "name": "Work"}
@@ -96,7 +96,7 @@ fn lists_get_refresh_on_403_then_retry() {
     let server = StubServer::new(vec![
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             403,
             serde_json::json!({"error": "expired"}),
             ("x-client-token", "OLD"),
@@ -110,7 +110,7 @@ fn lists_get_refresh_on_403_then_retry() {
         ),
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             200,
             serde_json::json!([
                 {"id": 5, "name": "After Refresh"}
@@ -144,7 +144,7 @@ fn lists_get_relogin_when_refresh_fails() {
     let server = StubServer::new(vec![
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             401,
             serde_json::json!({"error": "expired"}),
             ("x-client-token", "OLD"),
@@ -165,7 +165,7 @@ fn lists_get_relogin_when_refresh_fails() {
         .with_body_check("username=user%40example.com&remote_key=REMOTE"),
         StubResponse::json_with_header(
             "GET",
-            "/checklists.json",
+            "/checklists.json?skip_stats=true",
             200,
             serde_json::json!([
                 {"id": 8, "name": "After Relogin"}
@@ -198,7 +198,7 @@ fn lists_get_json_output_format() {
 
     let server = StubServer::new(vec![StubResponse::json_with_header(
         "GET",
-        "/checklists.json",
+        "/checklists.json?skip_stats=true",
         200,
         serde_json::json!([
             {"id": 9, "name": "Json"}
