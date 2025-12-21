@@ -58,6 +58,8 @@ pub enum Commands {
     Auth(AuthCommand),
     #[command(subcommand, name = "tasks", alias = "task")]
     Tasks(TasksCommand),
+    #[command(name = "notes", alias = "note")]
+    Notes(NotesArgs),
 }
 
 #[derive(Debug, Clone, Args)]
@@ -214,4 +216,74 @@ pub struct TasksRemoveArgs {
 pub enum TaskStatus {
     Open,
     Done,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(args_conflicts_with_subcommands = true)]
+pub struct NotesArgs {
+    #[command(flatten)]
+    pub note: Option<NotesGetArgs>,
+
+    #[command(subcommand)]
+    pub command: Option<NotesSubcommand>,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum NotesSubcommand {
+    /// List notes for a task
+    List(NotesGetArgs),
+    /// Create a note for a task
+    Create(NotesCreateArgs),
+    /// Update a note for a task
+    Update(NotesUpdateArgs),
+    /// Delete a note from a task
+    Remove(NotesRemoveArgs),
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct NotesGetArgs {
+    #[arg(long = "list-id", alias = "list", value_name = "LIST_ID")]
+    pub list_id: i64,
+
+    #[arg(long = "task-id", alias = "task", value_name = "TASK_ID")]
+    pub task_id: i64,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct NotesCreateArgs {
+    #[arg(long = "list-id", alias = "list", value_name = "LIST_ID")]
+    pub list_id: i64,
+
+    #[arg(long = "task-id", alias = "task", value_name = "TASK_ID")]
+    pub task_id: i64,
+
+    #[arg(long, value_name = "TEXT")]
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct NotesUpdateArgs {
+    #[arg(long = "list-id", alias = "list", value_name = "LIST_ID")]
+    pub list_id: i64,
+
+    #[arg(long = "task-id", alias = "task", value_name = "TASK_ID")]
+    pub task_id: i64,
+
+    #[arg(long = "note-id", value_name = "NOTE_ID")]
+    pub note_id: i64,
+
+    #[arg(long, value_name = "TEXT")]
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct NotesRemoveArgs {
+    #[arg(long = "list-id", alias = "list", value_name = "LIST_ID")]
+    pub list_id: i64,
+
+    #[arg(long = "task-id", alias = "task", value_name = "TASK_ID")]
+    pub task_id: i64,
+
+    #[arg(long = "note-id", value_name = "NOTE_ID")]
+    pub note_id: i64,
 }
