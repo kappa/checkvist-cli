@@ -17,22 +17,22 @@ impl Default for OutputFormat {
 #[command(name = "checkvist-cli")]
 #[command(about = "Checkvist CLI", long_about = None)]
 pub struct Cli {
-    #[arg(long, default_value = "text", value_enum, value_name = "FORMAT")]
+    #[arg(long, default_value = "text", value_enum, value_name = "FORMAT", global = true)]
     pub format: OutputFormat,
 
-    #[arg(long, default_value = "default", value_name = "PROFILE")]
+    #[arg(long, default_value = "default", value_name = "PROFILE", global = true)]
     pub profile: String,
 
-    #[arg(long, default_value = "https://checkvist.com", value_name = "BASE_URL")]
+    #[arg(long, default_value = "https://checkvist.com", value_name = "BASE_URL", global = true)]
     pub base_url: String,
 
-    #[arg(long, value_name = "AUTH_FILE")]
+    #[arg(long, value_name = "AUTH_FILE", global = true)]
     pub auth_file: Option<PathBuf>,
 
-    #[arg(long, value_name = "TOKEN_FILE")]
+    #[arg(long, value_name = "TOKEN_FILE", global = true)]
     pub token_file: Option<PathBuf>,
 
-    #[arg(short, long, action = ArgAction::Count)]
+    #[arg(short, long, action = ArgAction::Count, global = true)]
     pub verbose: u8,
 
     #[command(subcommand)]

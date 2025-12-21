@@ -139,6 +139,24 @@ impl CheckvistApi {
             )),
         }
     }
+
+    pub fn auth_status(&self, token: &str) -> AppResult<Value> {
+        let url = format!("{}/auth/curr_user.json", self.base_url);
+        let response = self
+            .agent
+            .get(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from auth status: {}", err),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Deserialize)]

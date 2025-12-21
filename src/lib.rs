@@ -3,15 +3,17 @@ pub mod cfg;
 pub mod cli;
 pub mod error;
 pub mod token_store;
+pub mod commands;
+pub mod output;
 
 use crate::cli::Cli;
 use crate::error::{AppError, ErrorKind};
+use crate::commands::dispatch;
 use clap::Parser;
 
 pub fn run() -> Result<(), AppError> {
-    let _cli = Cli::parse();
-    // Milestone M2: parsing only; command execution will be added in later milestones.
-    Ok(())
+    let cli = Cli::parse();
+    dispatch(cli)
 }
 
 pub fn exit_code(kind: ErrorKind) -> i32 {
