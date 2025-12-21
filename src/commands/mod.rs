@@ -1,8 +1,8 @@
 use crate::api::{CheckvistApi, Order};
 use crate::cfg::{ConfigLoader, ResolvedConfig};
 use crate::cli::{
-    AuthCommand, AuthLoginArgs, BackupArgs, Cli, Commands, ListsArgs, ListsSubcommand, NotesArgs,
-    NotesSubcommand, TaskStatus, TasksCommand,
+    AuthCommand, AuthLoginArgs, Cli, Commands, ListsArgs, ListsSubcommand, NotesArgs,
+    NotesSubcommand, TaskStatus, TasksCommand, BackupArgs,
 };
 use crate::error::{AppError, AppResult, ErrorKind};
 use crate::output::{print_auth_status, print_list, print_lists, print_notes, print_tasks};
