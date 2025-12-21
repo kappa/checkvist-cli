@@ -26,6 +26,7 @@ fn lists_get_help_shows_options() {
         .success()
         .stdout(predicate::str::contains("--archived"))
         .stdout(predicate::str::contains("--order <ORDER>"))
+        .stdout(predicate::str::contains("--skip-stats"))
         .stdout(predicate::str::contains("--with-stats"));
 }
 
@@ -37,4 +38,14 @@ fn auth_status_help_shows_output_formats() {
         .success()
         .stdout(predicate::str::contains("auth status"))
         .stdout(predicate::str::contains("--format"));
+}
+
+#[test]
+fn auth_login_help_present() {
+    let mut cmd = cargo_bin_cmd!("checkvist-cli");
+    cmd.args(["auth", "login", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("auth login"))
+        .stdout(predicate::str::contains("Usage"));
 }

@@ -1,11 +1,14 @@
 use crate::api::{CheckvistApi, Order};
-use crate::cfg::ConfigLoader;
+use crate::cfg::{ConfigLoader, ResolvedConfig};
 use crate::cli::{
-    AuthCommand, Cli, Commands, ListsArgs, ListsSubcommand, TaskStatus, TasksCommand,
+    AuthCommand, AuthLoginArgs, Cli, Commands, ListsArgs, ListsSubcommand, TaskStatus, TasksCommand,
 };
 use crate::error::{AppError, AppResult, ErrorKind};
 use crate::output::{print_auth_status, print_list, print_lists, print_tasks};
 use crate::token_store;
+use crate::{cfg, cli};
+use clap::CommandFactory;
+use std::io::{self, Write};
 
 pub mod request;
 
@@ -21,27 +24,45 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
     } else {
         Some(cli.base_url.clone())
     };
+
+    let command = match cli.command {
+        None => {
+            return Err(AppError::new(
+                ErrorKind::Argument,
+                cli::Cli::command().render_help().to_string(),
+            ))
+        }
+        Some(command) => command,
+    };
+
+    if let Commands::Auth(AuthCommand::Login(args)) = &command {
+        let resolved = loader.resolve(
+            profile_override,
+            base_url_override,
+            cli.auth_file.clone(),
+            cli.token_file.clone(),
+        );
+        return run_login(&resolved, args);
+    }
+
     let config = loader.load(
         profile_override,
         base_url_override,
         cli.auth_file.clone(),
         cli.token_file.clone(),
     )?;
-
     let api = CheckvistApi::new(config.base_url.clone());
 
-    match cli.command {
-        Some(Commands::Lists(args)) => handle_lists(cli.format, args, &api, &config),
-        Some(Commands::Tasks(cmd)) => handle_tasks(cli.format, cmd, &api, &config),
-        Some(Commands::Auth(AuthCommand::Status(args))) => {
+    match command {
+        Commands::Lists(args) => handle_lists(cli.format, args, &api, &config),
+        Commands::Tasks(cmd) => handle_tasks(cli.format, cmd, &api, &config),
+        Commands::Auth(AuthCommand::Status(args)) => {
             let token = ensure_token(&api, &config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let user = request::with_token_retry(
                 &api,
                 &config.token_file,
@@ -53,7 +74,7 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
             print_auth_status(&user, args.format)?;
             Ok(())
         }
-        None => Err(AppError::new(ErrorKind::Argument, "no command provided")),
+        Commands::Auth(AuthCommand::Login(_)) => unreachable!("handled above"),
     }
 }
 
@@ -98,20 +119,31 @@ fn handle_lists(
 
     match command {
         ListsSubcommand::Get(args) => {
-            let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
+            let skip_stats = if args.with_stats {
+                false
+            } else if args.skip_stats {
+                true
+            } else {
+                true
             };
+
+            let token = ensure_token(api, config)?;
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let lists = request::with_token_retry(
                 api,
                 &config.token_file,
                 token,
                 |api, token| {
-                    api.get_checklists(token, Some(args.archived), order, Some(!args.with_stats))
+                    api.get_checklists(
+                        token,
+                        Some(args.archived),
+                        order,
+                        Some(skip_stats),
+                    )
                 },
                 login,
             )?;
@@ -120,13 +152,11 @@ fn handle_lists(
         }
         ListsSubcommand::Create(args) => {
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let list = request::with_token_retry(
                 api,
                 &config.token_file,
@@ -139,13 +169,11 @@ fn handle_lists(
         }
         ListsSubcommand::Delete(args) => {
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let tasks = request::with_token_retry(
                 api,
                 &config.token_file,
@@ -162,13 +190,11 @@ fn handle_lists(
             }
 
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             request::with_token_retry(
                 api,
                 &config.token_file,
@@ -202,13 +228,11 @@ fn handle_lists(
             }
 
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let list = request::with_token_retry(
                 api,
                 &config.token_file,
@@ -232,13 +256,11 @@ fn handle_lists(
             }
 
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let list = request::with_token_retry(
                 api,
                 &config.token_file,
@@ -261,13 +283,11 @@ fn handle_tasks(
     match command {
         TasksCommand::Get(args) => {
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let tasks = request::with_token_retry(
                 api,
                 &config.token_file,
@@ -280,13 +300,11 @@ fn handle_tasks(
         }
         TasksCommand::Create(args) => {
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let task = request::with_token_retry(
                 api,
                 &config.token_file,
@@ -309,13 +327,11 @@ fn handle_tasks(
                 TaskStatus::Done => "done",
             });
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             let task = request::with_token_retry(
                 api,
                 &config.token_file,
@@ -337,13 +353,11 @@ fn handle_tasks(
         }
         TasksCommand::Remove(args) => {
             let token = ensure_token(api, config)?;
-            let login = || {
-                api.login(
-                    &config.username,
-                    &config.remote_key,
-                    config.token2fa.as_deref(),
-                )
-            };
+            let login = || api.login(
+                &config.username,
+                &config.remote_key,
+                config.token2fa.as_deref(),
+            );
             request::with_token_retry(
                 api,
                 &config.token_file,
@@ -354,4 +368,70 @@ fn handle_tasks(
             Ok(())
         }
     }
+}
+
+fn run_login(resolved: &ResolvedConfig, _args: &AuthLoginArgs) -> AppResult<()> {
+    let base = resolved.base_url.trim_end_matches('/');
+    let login_url = format!("{}/auth/login", base);
+    let api_key_url = format!("{}/auth/profile", base);
+
+    println!(
+        "We'll create credentials for profile \"{}\" in {}",
+        resolved.profile,
+        resolved.auth_file.display()
+    );
+    println!("1) Open and sign in: {login_url}");
+    println!("2) Copy your Remote API key from: {api_key_url}");
+    println!("3) Paste your login name and Remote API key below.");
+    println!("(Press Enter to leave 2FA token empty if you don't use it.)\n");
+
+    let mut stdout = io::stdout();
+    let stdin = io::stdin();
+
+    print!("Checkvist login/email: ");
+    stdout.flush().ok();
+    let mut username = String::new();
+    stdin.read_line(&mut username).map_err(|err| {
+        AppError::new(
+            ErrorKind::Local,
+            format!("failed to read username: {}", err),
+        )
+    })?;
+
+    print!("Remote API key: ");
+    stdout.flush().ok();
+    let mut remote_key = String::new();
+    stdin.read_line(&mut remote_key).map_err(|err| {
+        AppError::new(
+            ErrorKind::Local,
+            format!("failed to read remote key: {}", err),
+        )
+    })?;
+
+    print!("2FA token (optional): ");
+    stdout.flush().ok();
+    let mut token2fa = String::new();
+    stdin.read_line(&mut token2fa).map_err(|err| {
+        AppError::new(
+            ErrorKind::Local,
+            format!("failed to read 2FA token: {}", err),
+        )
+    })?;
+
+    cfg::write_auth_config(
+        &resolved.auth_file,
+        &resolved.profile,
+        username.trim(),
+        remote_key.trim(),
+        Some(token2fa.trim()).filter(|v| !v.is_empty()),
+    )?;
+
+    println!(
+        "Saved credentials for profile \"{}\" to {}",
+        resolved.profile,
+        resolved.auth_file.display()
+    );
+    println!("Run `checkvist auth status` to verify your setup.");
+
+    Ok(())
 }

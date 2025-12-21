@@ -92,8 +92,11 @@ pub struct ListsGetArgs {
     #[arg(long, value_name = "ORDER")]
     pub order: Option<String>,
 
-    #[arg(long, action = ArgAction::SetTrue)]
+    #[arg(long = "with-stats", action = ArgAction::SetTrue, conflicts_with = "skip_stats")]
     pub with_stats: bool,
+
+    #[arg(long = "skip-stats", action = ArgAction::SetTrue, conflicts_with = "with_stats")]
+    pub skip_stats: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -138,6 +141,7 @@ pub struct ListsShowArgs {
 #[derive(Debug, Subcommand)]
 pub enum AuthCommand {
     Status(AuthStatusArgs),
+    Login(AuthLoginArgs),
 }
 
 #[derive(Debug, Args)]
@@ -145,6 +149,9 @@ pub struct AuthStatusArgs {
     #[arg(long, value_enum, default_value = "text", value_name = "FORMAT")]
     pub format: OutputFormat,
 }
+
+#[derive(Debug, Args)]
+pub struct AuthLoginArgs {}
 
 #[derive(Debug, Subcommand)]
 pub enum TasksCommand {
