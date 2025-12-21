@@ -77,29 +77,3 @@ jobs:
           draft: ${{ inputs.draft }}
           files: |
             checkvist-cli-${{ inputs.tag }}-${{ matrix.target }}.${{ matrix.archive }}
-
-  source:
-    name: source-tarball
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.tag }}
-
-      - name: Create source tarball
-        shell: bash
-        run: |
-          set -euo pipefail
-          ROOT="checkvist-cli-${{ inputs.tag }}"
-          OUT="checkvist-cli-${{ inputs.tag }}-src.tar.gz"
-          git archive --format=tar --prefix="${ROOT}/" ${{ inputs.tag }} | gzip -9 > "$OUT"
-
-      - name: Upload source tarball
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.tag }}
-          draft: ${{ inputs.draft }}
-          files: |
-            checkvist-cli-${{ inputs.tag }}-src.tar.gz
