@@ -1,6 +1,6 @@
-use crate::error::{AppError, AppResult, ErrorKind};
-use crate::commands::request::format_lists;
 use crate::cli::OutputFormat;
+use crate::commands::request::format_lists;
+use crate::error::{AppError, AppResult, ErrorKind};
 use serde_json::Value;
 use std::io::{self, Write};
 
@@ -19,9 +19,8 @@ pub fn print_lists(lists: &[Value], format: OutputFormat) -> AppResult<()> {
             let stdout = io::stdout();
             let mut handle = stdout.lock();
             let obj = serde_json::json!({"lists": lists});
-            serde_json::to_writer(&mut handle, &obj).map_err(|err| {
-                AppError::new(ErrorKind::Local, format!("write error: {}", err))
-            })?;
+            serde_json::to_writer(&mut handle, &obj)
+                .map_err(|err| AppError::new(ErrorKind::Local, format!("write error: {}", err)))?;
         }
     }
     Ok(())
@@ -37,16 +36,14 @@ pub fn print_auth_status(user: &Value, format: OutputFormat) -> AppResult<()> {
                 .unwrap_or("unknown");
             let stdout = io::stdout();
             let mut handle = stdout.lock();
-            writeln!(handle, "ok\t{}", email).map_err(|err| {
-                AppError::new(ErrorKind::Local, format!("write error: {}", err))
-            })?;
+            writeln!(handle, "ok\t{}", email)
+                .map_err(|err| AppError::new(ErrorKind::Local, format!("write error: {}", err)))?;
         }
         OutputFormat::Json => {
             let stdout = io::stdout();
             let mut handle = stdout.lock();
-            serde_json::to_writer(&mut handle, user).map_err(|err| {
-                AppError::new(ErrorKind::Local, format!("write error: {}", err))
-            })?;
+            serde_json::to_writer(&mut handle, user)
+                .map_err(|err| AppError::new(ErrorKind::Local, format!("write error: {}", err)))?;
         }
     }
     Ok(())

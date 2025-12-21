@@ -1,14 +1,14 @@
 pub mod api;
 pub mod cfg;
 pub mod cli;
-pub mod error;
-pub mod token_store;
 pub mod commands;
+pub mod error;
 pub mod output;
+pub mod token_store;
 
 use crate::cli::Cli;
-use crate::error::{AppError, ErrorKind};
 use crate::commands::dispatch;
+use crate::error::{AppError, ErrorKind};
 use clap::Parser;
 
 pub fn run() -> Result<(), AppError> {

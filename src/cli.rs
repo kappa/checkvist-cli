@@ -17,13 +17,24 @@ impl Default for OutputFormat {
 #[command(name = "checkvist-cli")]
 #[command(about = "Checkvist CLI", long_about = None)]
 pub struct Cli {
-    #[arg(long, default_value = "text", value_enum, value_name = "FORMAT", global = true)]
+    #[arg(
+        long,
+        default_value = "text",
+        value_enum,
+        value_name = "FORMAT",
+        global = true
+    )]
     pub format: OutputFormat,
 
     #[arg(long, default_value = "default", value_name = "PROFILE", global = true)]
     pub profile: String,
 
-    #[arg(long, default_value = "https://checkvist.com", value_name = "BASE_URL", global = true)]
+    #[arg(
+        long,
+        default_value = "https://checkvist.com",
+        value_name = "BASE_URL",
+        global = true
+    )]
     pub base_url: String,
 
     #[arg(long, value_name = "AUTH_FILE", global = true)]
@@ -67,6 +78,7 @@ pub struct ListsGetArgs {
 #[derive(Debug, Subcommand)]
 pub enum AuthCommand {
     Status(AuthStatusArgs),
+    Login(AuthLoginArgs),
 }
 
 #[derive(Debug, Args)]
@@ -74,3 +86,6 @@ pub struct AuthStatusArgs {
     #[arg(long, value_enum, default_value = "text", value_name = "FORMAT")]
     pub format: OutputFormat,
 }
+
+#[derive(Debug, Args)]
+pub struct AuthLoginArgs {}
