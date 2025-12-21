@@ -14,6 +14,7 @@ pub struct StubResponse {
     pub content_type: &'static str,
 }
 
+#[allow(dead_code)]
 impl StubResponse {
     pub fn json(method: &'static str, path: &'static str, status: u16, body: Value) -> Self {
         Self {

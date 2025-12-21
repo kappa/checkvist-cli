@@ -1,7 +1,7 @@
 use crate::api::{CheckvistApi, Order};
 use crate::cfg::{ConfigLoader, ResolvedConfig};
 use crate::cli::{
-    AuthCommand, AuthLoginArgs, Cli, Commands, ListsArgs, ListsSubcommand, NotesArgs,
+    AuthCommand, AuthLoginArgs, BackupArgs, Cli, Commands, ListsArgs, ListsSubcommand, NotesArgs,
     NotesSubcommand, TaskStatus, TasksCommand,
 };
 use crate::error::{AppError, AppResult, ErrorKind};
@@ -11,6 +11,7 @@ use crate::{cfg, cli};
 use clap::CommandFactory;
 use std::io::{self, Write};
 
+pub mod backup;
 pub mod request;
 
 pub fn dispatch(cli: Cli) -> AppResult<()> {
@@ -57,6 +58,7 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
     match command {
         Commands::Lists(args) => handle_lists(cli.format, args, &api, &config),
         Commands::Tasks(cmd) => handle_tasks(cli.format, cmd, &api, &config),
+        Commands::Backup(args) => backup::run_backup(args, &api, &config),
         Commands::Notes(args) => handle_notes(cli.format, args, &api, &config),
         Commands::Auth(AuthCommand::Status(args)) => {
             let token = ensure_token(&api, &config)?;
@@ -82,7 +84,10 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
     }
 }
 
-fn ensure_token(api: &CheckvistApi, config: &crate::cfg::AuthConfig) -> AppResult<String> {
+pub(super) fn ensure_token(
+    api: &CheckvistApi,
+    config: &crate::cfg::AuthConfig,
+) -> AppResult<String> {
     if let Some(token) = token_store::read_token(&config.token_file)? {
         return Ok(token);
     }

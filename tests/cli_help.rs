@@ -15,7 +15,8 @@ fn help_includes_global_flags_and_subcommands() {
         .stdout(predicate::str::contains("--token-file <TOKEN_FILE>"))
         .stdout(predicate::str::contains("-v, --verbose"))
         .stdout(predicate::str::contains("lists"))
-        .stdout(predicate::str::contains("auth"));
+        .stdout(predicate::str::contains("auth"))
+        .stdout(predicate::str::contains("backup"));
 }
 
 #[test]
@@ -48,4 +49,15 @@ fn auth_login_help_present() {
         .success()
         .stdout(predicate::str::contains("auth login"))
         .stdout(predicate::str::contains("Usage"));
+}
+
+#[test]
+fn backup_help_shows_options() {
+    let mut cmd = cargo_bin_cmd!("checkvist-cli");
+    cmd.args(["backup", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--output <DIR>"))
+        .stdout(predicate::str::contains("--date"))
+        .stdout(predicate::str::contains("--nolog"));
 }
