@@ -23,6 +23,11 @@ impl Order {
     }
 }
 
+pub struct ChecklistsResponse {
+    pub items: Vec<Value>,
+    pub raw: String,
+}
+
 pub struct CheckvistApi {
     base_url: String,
     agent: Agent,
@@ -96,6 +101,57 @@ impl CheckvistApi {
         order: Option<Order>,
         skip_stats: Option<bool>,
     ) -> AppResult<Vec<Value>> {
+        Ok(self
+            .get_checklists_raw(token, archived, order, skip_stats)?
+            .items)
+    }
+
+    pub fn get_checklists_raw(
+        &self,
+        token: &str,
+        archived: Option<bool>,
+        order: Option<Order>,
+        skip_stats: Option<bool>,
+    ) -> AppResult<ChecklistsResponse> {
+        let url = self.checklists_url(archived, order, skip_stats);
+
+        let response = self
+            .agent
+            .get(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        let raw = response.into_string().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid response body from lists endpoint: {}", err),
+            )
+        })?;
+
+        let value: serde_json::Value = serde_json::from_str(&raw).map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from lists endpoint: {}", err),
+            )
+        })?;
+
+        match value {
+            Value::Array(items) => Ok(ChecklistsResponse { items, raw }),
+            _ => Err(AppError::new(
+                ErrorKind::ApiData,
+                "expected array of lists from API",
+            )),
+        }
+    }
+
+    fn checklists_url(
+        &self,
+        archived: Option<bool>,
+        order: Option<Order>,
+        skip_stats: Option<bool>,
+    ) -> String {
         let mut url = format!("{}/checklists.json", self.base_url);
 
         let mut params = vec![];
@@ -117,29 +173,7 @@ impl CheckvistApi {
             url.push('?');
             url.push_str(&query.join("&"));
         }
-
-        let response = self
-            .agent
-            .get(&url)
-            .set("Accept", "application/json")
-            .set("X-Client-Token", token)
-            .call()
-            .map_err(map_network_error)?;
-
-        let value: serde_json::Value = response.into_json().map_err(|err| {
-            AppError::new(
-                ErrorKind::ApiData,
-                format!("invalid JSON from lists endpoint: {}", err),
-            )
-        })?;
-
-        match value {
-            Value::Array(items) => Ok(items),
-            _ => Err(AppError::new(
-                ErrorKind::ApiData,
-                "expected array of lists from API",
-            )),
-        }
+        url
     }
 
     pub fn create_checklist(&self, token: &str, name: &str) -> AppResult<Value> {
@@ -188,10 +222,7 @@ impl CheckvistApi {
             params.push(("public", public.to_string()));
         }
 
-        let param_refs: Vec<(&str, &str)> = params
-            .iter()
-            .map(|(k, v)| (*k, v.as_str()))
-            .collect();
+        let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
 
         let response = self
             .agent
@@ -265,10 +296,7 @@ impl CheckvistApi {
         if let Some(parent_id) = parent_id {
             params.push(("parent_id", parent_id.to_string()));
         }
-        let param_refs: Vec<(&str, &str)> = params
-            .iter()
-            .map(|(k, v)| (*k, v.as_str()))
-            .collect();
+        let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
         let response = self
             .agent
             .post(&url)
@@ -308,10 +336,7 @@ impl CheckvistApi {
         if let Some(parent_id) = parent_id {
             params.push(("parent_id", parent_id.to_string()));
         }
-        let param_refs: Vec<(&str, &str)> = params
-            .iter()
-            .map(|(k, v)| (*k, v.as_str()))
-            .collect();
+        let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
 
         let response = self
             .agent
@@ -342,6 +367,27 @@ impl CheckvistApi {
             .map_err(map_network_error)?;
 
         Ok(())
+    }
+
+    pub fn get_checklist_opml(&self, token: &str, list_id: i64) -> AppResult<String> {
+        let url = format!(
+            "{}/checklists/{}.opml?export_status=true&export_notes=true&export_details=true&export_color=true",
+            self.base_url, list_id
+        );
+        let response = self
+            .agent
+            .get(&url)
+            .set("Accept", "application/xml")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        response.into_string().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid OPML response: {}", err),
+            )
+        })
     }
 
     pub fn auth_status(&self, token: &str) -> AppResult<Value> {
