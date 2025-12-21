@@ -390,6 +390,117 @@ impl CheckvistApi {
         })
     }
 
+    pub fn get_notes(&self, token: &str, list_id: i64, task_id: i64) -> AppResult<Vec<Value>> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}/notes.json",
+            self.base_url, list_id, task_id
+        );
+        let response = self
+            .agent
+            .get(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        let value: serde_json::Value = response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from notes endpoint: {}", err),
+            )
+        })?;
+
+        match value {
+            Value::Array(items) => Ok(items),
+            _ => Err(AppError::new(
+                ErrorKind::ApiData,
+                "expected array of notes from API",
+            )),
+        }
+    }
+
+    pub fn create_note(
+        &self,
+        token: &str,
+        list_id: i64,
+        task_id: i64,
+        text: &str,
+    ) -> AppResult<Value> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}/notes.json",
+            self.base_url, list_id, task_id
+        );
+        let response = self
+            .agent
+            .post(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .send_form(&[("text", text)])
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from note create: {}", err),
+            )
+        })
+    }
+
+    pub fn update_note(
+        &self,
+        token: &str,
+        list_id: i64,
+        task_id: i64,
+        note_id: i64,
+        text: Option<&str>,
+    ) -> AppResult<Value> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}/notes/{}.json",
+            self.base_url, list_id, task_id, note_id
+        );
+        let mut params: Vec<(&str, String)> = Vec::new();
+        if let Some(text) = text {
+            params.push(("text", text.to_string()));
+        }
+        let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
+
+        let response = self
+            .agent
+            .put(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .send_form(&param_refs)
+            .map_err(map_network_error)?;
+
+        response.into_json().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from note update: {}", err),
+            )
+        })
+    }
+
+    pub fn delete_note(
+        &self,
+        token: &str,
+        list_id: i64,
+        task_id: i64,
+        note_id: i64,
+    ) -> AppResult<()> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}/notes/{}.json",
+            self.base_url, list_id, task_id, note_id
+        );
+        self.agent
+            .delete(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        Ok(())
+    }
+
     pub fn auth_status(&self, token: &str) -> AppResult<Value> {
         let url = format!("{}/auth/curr_user.json", self.base_url);
         let response = self

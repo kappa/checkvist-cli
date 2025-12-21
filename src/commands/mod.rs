@@ -1,10 +1,11 @@
 use crate::api::{CheckvistApi, Order};
 use crate::cfg::{ConfigLoader, ResolvedConfig};
 use crate::cli::{
-    AuthCommand, AuthLoginArgs, Cli, Commands, ListsArgs, ListsSubcommand, TaskStatus, TasksCommand,
+    AuthCommand, AuthLoginArgs, BackupArgs, Cli, Commands, ListsArgs, ListsSubcommand, NotesArgs,
+    NotesSubcommand, TaskStatus, TasksCommand,
 };
 use crate::error::{AppError, AppResult, ErrorKind};
-use crate::output::{print_auth_status, print_list, print_lists, print_tasks};
+use crate::output::{print_auth_status, print_list, print_lists, print_notes, print_tasks};
 use crate::token_store;
 use crate::{cfg, cli};
 use clap::CommandFactory;
@@ -58,6 +59,7 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
         Commands::Lists(args) => handle_lists(cli.format, args, &api, &config),
         Commands::Tasks(cmd) => handle_tasks(cli.format, cmd, &api, &config),
         Commands::Backup(args) => backup::run_backup(args, &api, &config),
+        Commands::Notes(args) => handle_notes(cli.format, args, &api, &config),
         Commands::Auth(AuthCommand::Status(args)) => {
             let token = ensure_token(&api, &config)?;
             let login = || {
@@ -385,6 +387,115 @@ fn handle_tasks(
                 &config.token_file,
                 token,
                 |api, token| api.delete_task(token, args.list_id, args.task_id),
+                login,
+            )?;
+            Ok(())
+        }
+    }
+}
+
+fn handle_notes(
+    format: crate::cli::OutputFormat,
+    args: NotesArgs,
+    api: &CheckvistApi,
+    config: &crate::cfg::AuthConfig,
+) -> AppResult<()> {
+    let command = match args.command {
+        Some(cmd) => cmd,
+        None => {
+            let note_args = args.note.ok_or_else(|| {
+                AppError::new(ErrorKind::Argument, "list and task are required for notes")
+            })?;
+            NotesSubcommand::List(note_args)
+        }
+    };
+
+    match command {
+        NotesSubcommand::List(args) => {
+            let token = ensure_token(api, config)?;
+            let login = || {
+                api.login(
+                    &config.username,
+                    &config.remote_key,
+                    config.token2fa.as_deref(),
+                )
+            };
+            let notes = request::with_token_retry(
+                api,
+                &config.token_file,
+                token,
+                |api, token| api.get_notes(token, args.list_id, args.task_id),
+                login,
+            )?;
+            print_notes(&notes, format)?;
+            Ok(())
+        }
+        NotesSubcommand::Create(args) => {
+            let token = ensure_token(api, config)?;
+            let login = || {
+                api.login(
+                    &config.username,
+                    &config.remote_key,
+                    config.token2fa.as_deref(),
+                )
+            };
+            let note = request::with_token_retry(
+                api,
+                &config.token_file,
+                token,
+                |api, token| api.create_note(token, args.list_id, args.task_id, &args.text),
+                login,
+            )?;
+            print_notes(&[note], format)?;
+            Ok(())
+        }
+        NotesSubcommand::Update(args) => {
+            if args.text.is_none() {
+                return Err(AppError::new(
+                    ErrorKind::Argument,
+                    "no updates provided for note",
+                ));
+            }
+            let token = ensure_token(api, config)?;
+            let login = || {
+                api.login(
+                    &config.username,
+                    &config.remote_key,
+                    config.token2fa.as_deref(),
+                )
+            };
+            let note = request::with_token_retry(
+                api,
+                &config.token_file,
+                token,
+                |api, token| {
+                    api.update_note(
+                        token,
+                        args.list_id,
+                        args.task_id,
+                        args.note_id,
+                        args.text.as_deref(),
+                    )
+                },
+                login,
+            )?;
+            print_notes(&[note], format)?;
+            Ok(())
+        }
+        NotesSubcommand::Remove(args) => {
+            let token = ensure_token(api, config)?;
+            let login = || {
+                api.login(
+                    &config.username,
+                    &config.remote_key,
+                    config.token2fa.as_deref(),
+                )
+            };
+            request::with_token_retry(
+                api,
+                &config.token_file,
+                token,
+                |api, token| api.delete_note(token, args.list_id, args.task_id, args.note_id),
                 login,
             )?;
             Ok(())
