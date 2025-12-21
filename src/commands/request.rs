@@ -52,6 +52,16 @@ pub fn format_list_line(item: &Value) -> Option<String> {
     Some(format!("{}\t{}", id, name))
 }
 
+pub fn format_notes(notes: &[Value]) -> Vec<String> {
+    notes.iter().filter_map(format_note_line).collect()
+}
+
+pub fn format_note_line(item: &Value) -> Option<String> {
+    let id = item.get("id")?.as_i64()?;
+    let text = item.get("text")?.as_str()?;
+    Some(format!("{}\t{}", id, text))
+}
+
 pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
     let mut children: HashMap<Option<i64>, Vec<usize>> = HashMap::new();
     let mut all_ids: HashSet<i64> = HashSet::new();
