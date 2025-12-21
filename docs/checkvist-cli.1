@@ -139,14 +139,11 @@ Delete a note from a task.
 .SS BACKUP COMMAND
 .TP
 .B backup " " [\fIOPTIONS\fR]
-Create a backup of all checklists in OPML format.
+Export all checklists (active and archived) as individual OPML files. Each checklist is saved as a separate file named \fBID-Name.opml\fR in the output directory.
 .RS
 .TP
 .B \-\-output " " \fIDIR\fR
 Output directory (default: current directory).
-.TP
-.B \-\-date
-Add date suffix to backup filename.
 .TP
 .B \-\-nolog
 Suppress progress logging to stderr.
@@ -373,11 +370,14 @@ checkvist-cli -vv auth status
 .PP
 .nf
 .RS
-# Backup all lists to current directory
+# Export all lists to current directory (creates ID-Name.opml files)
 checkvist-cli backup
 
-# Backup with date suffix
-checkvist-cli backup --date --output ~/backups
+# Export to specific directory
+checkvist-cli backup --output ~/backups
+
+# Silent export (no progress messages)
+checkvist-cli backup --output ~/backups --nolog
 .RE
 .fi
 .SH FILES
