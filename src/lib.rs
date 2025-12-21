@@ -7,13 +7,14 @@ pub mod log;
 pub mod output;
 pub mod token_store;
 
-use crate::cli::Cli;
 use crate::commands::dispatch;
 use crate::error::{AppError, ErrorKind};
-use clap::Parser;
 
 pub fn run() -> Result<(), AppError> {
-    let cli = Cli::parse();
+    let cli = match cli::parse_from_env()? {
+        cli::ParseOutcome::Cli(cli) => cli,
+        cli::ParseOutcome::Help => return Ok(()),
+    };
     log::init(cli.verbose);
     dispatch(cli)
 }

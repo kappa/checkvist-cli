@@ -27,6 +27,10 @@ impl AppError {
     pub fn kind(&self) -> ErrorKind {
         self.kind
     }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
 }
 
 pub type AppResult<T> = Result<T, AppError>;

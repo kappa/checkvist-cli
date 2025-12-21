@@ -8,7 +8,6 @@ use crate::error::{AppError, AppResult, ErrorKind};
 use crate::output::{print_auth_status, print_list, print_lists, print_notes, print_tasks};
 use crate::token_store;
 use crate::{cfg, cli};
-use clap::CommandFactory;
 use std::io::{self, Write};
 
 pub mod backup;
@@ -31,7 +30,7 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
         None => {
             return Err(AppError::new(
                 ErrorKind::Argument,
-                cli::Cli::command().render_help().to_string(),
+                cli::main_help().to_string(),
             ));
         }
         Some(command) => command,
