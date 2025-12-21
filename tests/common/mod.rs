@@ -163,11 +163,11 @@ fn read_request(stream: &mut TcpStream) -> RequestCapture {
             break;
         }
         data.extend_from_slice(&buffer[..n]);
-    if let Some(idx) = find_header_end(&data) {
-        header_end = Some(idx.0);
-        delimiter = idx.1;
-        break;
-    }
+        if let Some(idx) = find_header_end(&data) {
+            header_end = Some(idx.0);
+            delimiter = idx.1;
+            break;
+        }
     }
 
     let header_end = header_end.unwrap_or(data.len());

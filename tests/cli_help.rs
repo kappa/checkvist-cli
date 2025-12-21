@@ -38,3 +38,13 @@ fn auth_status_help_shows_output_formats() {
         .stdout(predicate::str::contains("auth status"))
         .stdout(predicate::str::contains("--format"));
 }
+
+#[test]
+fn auth_login_help_present() {
+    let mut cmd = cargo_bin_cmd!("checkvist-cli");
+    cmd.args(["auth", "login", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("auth login"))
+        .stdout(predicate::str::contains("Usage"));
+}
