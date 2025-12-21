@@ -58,7 +58,7 @@ pub enum Commands {
     Auth(AuthCommand),
     #[command(subcommand, name = "tasks", alias = "task")]
     Tasks(TasksCommand),
-    /// Create a tar.bz2 backup with OPML exports and metadata
+    /// Export all checklists as OPML files
     Backup(BackupArgs),
     #[command(name = "notes", alias = "note")]
     Notes(NotesArgs),
@@ -224,9 +224,6 @@ pub enum TaskStatus {
 pub struct BackupArgs {
     #[arg(long, value_name = "DIR", default_value = ".")]
     pub output: PathBuf,
-
-    #[arg(long, action = ArgAction::SetTrue)]
-    pub date: bool,
 
     #[arg(long = "nolog", action = ArgAction::SetTrue)]
     pub no_log: bool,

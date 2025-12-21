@@ -58,6 +58,5 @@ fn backup_help_shows_options() {
         .assert()
         .success()
         .stdout(predicate::str::contains("--output <DIR>"))
-        .stdout(predicate::str::contains("--date"))
         .stdout(predicate::str::contains("--nolog"));
 }
