@@ -35,17 +35,23 @@ pub struct CheckvistApi {
 }
 
 impl CheckvistApi {
-    pub fn new(base_url: String) -> Self {
-        let agent = AgentBuilder::new()
+    pub fn new(base_url: String) -> AppResult<Self> {
+        let mut builder = AgentBuilder::new()
             .timeout_connect(Duration::from_secs(5))
             .timeout_read(Duration::from_secs(20))
-            .timeout_write(Duration::from_secs(20))
-            .build();
+            .timeout_write(Duration::from_secs(20));
 
-        Self {
+        let tls_connector = ureq::native_tls::TlsConnector::new().map_err(|err| {
+            AppError::new(ErrorKind::Local, format!("failed to init TLS: {}", err))
+        })?;
+        builder = builder.tls_connector(std::sync::Arc::new(tls_connector));
+
+        let agent = builder.build();
+
+        Ok(Self {
             base_url: base_url.trim_end_matches('/').to_string(),
             agent,
-        }
+        })
     }
 
     fn log_request(&self, method: &str, url: &str, headers: &[(&str, &str)], body: Option<&str>) {

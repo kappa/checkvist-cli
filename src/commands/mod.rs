@@ -59,7 +59,7 @@ pub fn dispatch(cli: Cli) -> AppResult<()> {
         cli.token_file.clone(),
         missing_auth_hint,
     )?;
-    let api = CheckvistApi::new(config.base_url.clone());
+    let api = CheckvistApi::new(config.base_url.clone())?;
 
     match command {
         Commands::Lists(args) => handle_lists(cli.format, args, &api, &config),
@@ -576,7 +576,7 @@ fn run_login(resolved: &ResolvedConfig, _args: &AuthLoginArgs) -> AppResult<()> 
         resolved.auth_file.display()
     );
     println!("Verifying with `checkvist auth status`...");
-    let api = CheckvistApi::new(resolved.base_url.clone());
+    let api = CheckvistApi::new(resolved.base_url.clone())?;
     let config = crate::cfg::AuthConfig {
         base_url: resolved.base_url.clone(),
         profile: resolved.profile.clone(),

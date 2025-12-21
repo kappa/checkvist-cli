@@ -14,7 +14,7 @@ fn login_returns_token_on_success() {
         json!({"token": "LOGIN_TOKEN"}),
     )]);
 
-    let api = CheckvistApi::new(server.base_url());
+    let api = CheckvistApi::new(server.base_url()).expect("api init");
     let token = api
         .login("user@example.com", "REMOTE", None)
         .expect("login succeeds");
@@ -30,7 +30,7 @@ fn refresh_returns_new_token() {
         json!({"token": "NEW_TOKEN"}),
     )]);
 
-    let api = CheckvistApi::new(server.base_url());
+    let api = CheckvistApi::new(server.base_url()).expect("api init");
     let token = api.refresh_token("OLD_TOKEN").expect("refresh succeeds");
     assert_eq!(token, "NEW_TOKEN");
 }
@@ -50,7 +50,7 @@ fn get_checklists_uses_token_header() {
         ("x-client-token", "MYTOKEN"),
     )]);
 
-    let api = CheckvistApi::new(server.base_url());
+    let api = CheckvistApi::new(server.base_url()).expect("api init");
     let lists = api
         .get_checklists("MYTOKEN", Some(false), Some(Order::IdAsc), Some(true))
         .expect("lists succeed");
@@ -69,7 +69,7 @@ fn invalid_json_returns_data_error() {
         "not json",
     )]);
 
-    let api = CheckvistApi::new(server.base_url());
+    let api = CheckvistApi::new(server.base_url()).expect("api init");
     let err = api
         .get_checklists("TOKEN", None, None, None)
         .expect_err("should fail");
