@@ -249,7 +249,7 @@ impl CheckvistApi {
             .post(&url)
             .set("Accept", "application/json")
             .set("X-Client-Token", token)
-            .send_form(&[("name", name)])
+            .send_form(&[("checklist[name]", name)])
             .map_err(map_network_error)?;
 
         response.into_json().map_err(|err| {
