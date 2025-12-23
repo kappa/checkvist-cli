@@ -70,25 +70,32 @@ The test infrastructure was designed for **contract testing** (verify client sen
 ## Bugs
 
 ### 1. `lists create` doesn't respect name parameter
-**Status:** 🐛 Bug
+**Status:** ✅ FIXED (commit 521f6c2)
 **Severity:** Medium
 **Discovered:** 2025-12-22
+**Fixed:** 2025-12-22
 
 **Description:**
-When creating a new list with `checkvist-cli lists create "List Name"`, the list is created with a placeholder name "Name this list" instead of the provided name.
+When creating a new list with `checkvist-cli lists create "List Name"`, the list was created with a placeholder name "Name this list" instead of the provided name.
 
-**Steps to reproduce:**
-```bash
-checkvist-cli lists create "checkvist-cli development"
-# Returns: 944404	Name this list
-# Expected: 944404	checkvist-cli development
+**Root Cause:**
+The code was sending parameter as `name=...` instead of `checklist[name]=...`. The Checkvist API uses Rails-style nested parameters and ignores the incorrectly formatted parameter.
+
+**Fix:**
+Changed line 252 in `src/api.rs`:
+```rust
+// Before:
+.send_form(&[("name", name)])
+
+// After:
+.send_form(&[("checklist[name]", name)])
 ```
 
-**Expected behavior:**
-The created list should have the name specified in the command.
-
-**Actual behavior:**
-List is created with default placeholder name "Name this list".
+**Verification:**
+All 7 e2e tests pass, including:
+- `test_lists_create_with_valid_name_succeeds`
+- `test_lists_create_with_unicode_name_succeeds`
+- `test_lists_create_multiple_lists_all_appear`
 
 ---
 

@@ -45,15 +45,18 @@ This project previously had tests that gave **false confidence** - they passed w
 
 ```
 tests/
-├── fake_server/           # NEW: Behavioral fake Checkvist API
-│   ├── mod.rs            # Server infrastructure
-│   ├── lists.rs          # List endpoints implementation
-│   ├── tasks.rs          # Task endpoints implementation
-│   └── ...
-├── cli_lists_test.rs     # Tests for list commands
-├── cli_tasks_test.rs     # Tests for task commands
+├── fake_server.py         # Python fake Checkvist API (stdlib only)
+├── e2e_cli_lists_test.rs  # E2E tests for list commands
+├── e2e_cli_tasks_test.rs  # E2E tests for task commands (future)
 └── ...
 ```
+
+**Why Python for the fake server?**
+- ✅ Perfect black box - can't be linked into Rust tests
+- ✅ Zero dependencies (uses stdlib `http.server`)
+- ✅ Forces true API-only testing
+- ✅ Correct form data parsing (no bugs like our initial Rust attempt)
+- ✅ Easy to run standalone for manual testing
 
 ### Fake Server vs Real API
 
@@ -135,27 +138,34 @@ Example: Implementing `lists create`
 
 ### Step 3: Implement Fake Server Behavior
 
-In `tests/fake_server/lists.rs`:
+In `tests/fake_server.py`:
 
-```rust
-pub fn handle_create_checklist(request: &Request) -> Response {
-    // Parse form data from request body
-    let params = parse_form_data(&request.body);
+```python
+def create_checklist(self):
+    # Check auth
+    if not self.headers.get('X-Client-Token'):
+        self.send_json_response(401, {"error": "Unauthorized"})
+        return
 
-    // Simulate real Checkvist API behavior
-    let name = params.get("checklist[name]")
-        .map(|s| s.as_str())
-        .unwrap_or("Name this list");  // Default if parameter missing
+    # Parse form data
+    content_length = int(self.headers.get('Content-Length', 0))
+    body = self.rfile.read(content_length).decode('utf-8')
+    params = parse_qs(body)
 
-    // Generate response (in-memory, no persistence)
-    let id = generate_id();
-    Response::json(201, json!({
-        "id": id,
-        "name": name,
-        "created_at": now(),
-        // ... other fields
-    }))
-}
+    # Simulate real API: check for checklist[name]
+    name = params.get('checklist[name]', ['Name this list'])[0]
+
+    # Create checklist (in-memory, no persistence)
+    checklist = {
+        'id': state.next_id,
+        'name': name,
+        'created_at': datetime.utcnow().isoformat() + 'Z',
+        # ... other fields
+    }
+    state.checklists[state.next_id] = checklist
+    state.next_id += 1
+
+    self.send_json_response(201, checklist)
 ```
 
 **Key point**: Fake server BEHAVES like real API. No assertions on requests!
@@ -163,55 +173,107 @@ pub fn handle_create_checklist(request: &Request) -> Response {
 ### Step 4: Verify Fake Server with Curl
 
 ```bash
-# Start fake server (we'll build this helper)
-cargo run --bin fake-server &
+# Start Python fake server
+python3 tests/fake_server.py 8080 &
 SERVER_PID=$!
+sleep 2  # Wait for server to start
 
-# Test it behaves like real API
-curl -X POST "http://localhost:8080/checklists.json" \
-  --data-urlencode "checklist[name]=Test"
-# Should return: {"id": ..., "name": "Test", ...}
+# Test with WRONG parameter (should return placeholder)
+curl -X POST "http://127.0.0.1:8080/checklists.json" \
+  -H 'X-Client-Token: TEST' \
+  --data-urlencode "name=Wrong Parameter"
+# Should return: {"id": 0, "name": "Name this list", ...}
 
-curl -X POST "http://localhost:8080/checklists.json" \
-  --data-urlencode "name=Wrong"
-# Should return: {"id": ..., "name": "Name this list", ...}
+# Test with CORRECT parameter (should use provided name)
+curl -X POST "http://127.0.0.1:8080/checklists.json" \
+  -H 'X-Client-Token: TEST' \
+  --data-urlencode "checklist[name]=Correct Name"
+# Should return: {"id": 1, "name": "Correct Name", ...}
+
+# Test listing
+curl -H 'X-Client-Token: TEST' "http://127.0.0.1:8080/checklists.json"
+# Should return: [{"id": 0, ...}, {"id": 1, ...}]
+
+# Test without auth (should fail)
+curl "http://127.0.0.1:8080/checklists.json"
+# Should return: 401 Unauthorized
 
 kill $SERVER_PID
 ```
 
 ### Step 5: Write Failing Test
 
-In `tests/cli_lists_test.rs`:
+In `tests/e2e_cli_lists_test.rs`:
 
 ```rust
+use assert_cmd::cargo::cargo_bin_cmd;
+use predicates::prelude::*;
+
+// Python fake server helper
+struct PythonFakeServer {
+    process: Child,
+    base_url: String,
+}
+
+impl PythonFakeServer {
+    fn new() -> Self {
+        let port = find_available_port();
+        let process = Command::new("python3")
+            .arg("tests/fake_server.py")
+            .arg(port.to_string())
+            .spawn()
+            .expect("Failed to start Python fake server");
+
+        let base_url = format!("http://127.0.0.1:{}", port);
+        wait_for_server(&base_url);  // Poll until ready
+
+        PythonFakeServer { process, base_url }
+    }
+
+    fn base_url(&self) -> &str {
+        &self.base_url
+    }
+}
+
+impl Drop for PythonFakeServer {
+    fn drop(&mut self) {
+        let _ = self.process.kill();  // Clean shutdown
+    }
+}
+
 #[test]
-fn test_lists_create_with_valid_name() {
-    let server = TestServer::new();  // Starts fake server or uses real API
-    let temp = setup_test_env(&server);
+fn test_lists_create_with_valid_name_succeeds() {
+    let server = PythonFakeServer::new();  // Spawns Python server
+    let env = setup_test_env();
 
-    // Run the CLI command
-    let mut cmd = Command::cargo_bin("checkvist-cli").unwrap();
-    cmd.args(["lists", "create", "My New List"])
+    // Create a list
+    cargo_bin_cmd!("checkvist-cli")
+        .args(["lists", "create", "My New List"])
         .env("CHECKVIST_BASE_URL", server.base_url())
-        .env("CHECKVIST_AUTH_FILE", &temp.auth_file)
-        .env("CHECKVIST_TOKEN_FILE", &temp.token_file);
-
-    // Assert on CLI behavior only
-    cmd.assert()
+        .env("CHECKVIST_AUTH_FILE", &env.auth_file)
+        .env("CHECKVIST_TOKEN_FILE", &env.token_file)
+        .assert()
         .success()
         .stdout(predicate::str::contains("My New List"));
 
-    // Verify list was created (query the server)
-    let lists = server.get_lists();
-    assert_eq!(lists[0].name, "My New List");
+    // Verify it appears in listing (via CLI, not server internals!)
+    cargo_bin_cmd!("checkvist-cli")
+        .args(["lists"])
+        .env("CHECKVIST_BASE_URL", server.base_url())
+        .env("CHECKVIST_AUTH_FILE", &env.auth_file)
+        .env("CHECKVIST_TOKEN_FILE", &env.token_file)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("My New List"));
 }
 ```
 
 **What to test**:
 - ✅ CLI output contains expected values
 - ✅ CLI exit codes are correct
-- ✅ Server state changed as expected
+- ✅ Verify via CLI commands (not server internals!)
 - ❌ HTTP request format (that's implementation detail)
+- ❌ Server internal state (use API to verify!)
 
 ### Step 6: Run Test - Should Fail
 
@@ -267,16 +329,41 @@ Cover edge cases:
 ### Test File Structure
 
 ```rust
-// tests/cli_lists_test.rs
+// tests/e2e_cli_lists_test.rs
 
-mod fake_server;  // Import fake server
-
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
-use fake_server::TestServer;
+use std::process::{Child, Command};
+
+// Python fake server helper
+struct PythonFakeServer {
+    process: Child,
+    base_url: String,
+}
+
+impl PythonFakeServer {
+    fn new() -> Self {
+        let port = find_available_port();
+        let process = Command::new("python3")
+            .arg("tests/fake_server.py")
+            .arg(port.to_string())
+            .spawn()
+            .expect("Failed to start Python fake server");
+
+        let base_url = format!("http://127.0.0.1:{}", port);
+        wait_for_server(&base_url);
+        PythonFakeServer { process, base_url }
+    }
+}
+
+impl Drop for PythonFakeServer {
+    fn drop(&mut self) {
+        let _ = self.process.kill();
+    }
+}
 
 // Helper to setup test environment
-fn setup_test_env(server: &TestServer) -> TestEnv {
+fn setup_test_env() -> TestEnv {
     let temp = tempdir().unwrap();
     let auth_file = temp.path().join("auth.ini");
     let token_file = temp.path().join("token");
@@ -292,8 +379,8 @@ fn setup_test_env(server: &TestServer) -> TestEnv {
 
 #[test]
 fn test_lists_create_with_valid_name() {
-    let server = TestServer::new();
-    let env = setup_test_env(&server);
+    let server = PythonFakeServer::new();
+    let env = setup_test_env();
 
     // Test implementation...
 }
@@ -342,74 +429,67 @@ fn test_lists_create_sends_correct_http_format() {
 ### Design Principles
 
 1. **Behavioral Simulation**: Fake server must behave like real API
-2. **No Persistence**: In-memory only, reset between tests
+2. **No Persistence**: In-memory only, state per-process
 3. **Error Simulation**: Must simulate error conditions (401, 404, 500)
 4. **Simplicity**: Don't implement unused features
+5. **Black Box**: Can't be linked into tests - forces API-only testing
 
-### Implementation Structure
+### Implementation (Python)
 
-```rust
-// tests/fake_server/mod.rs
+The fake server is implemented in `tests/fake_server.py` using Python's stdlib:
 
-pub struct TestServer {
-    base_url: String,
-    handle: JoinHandle<()>,
-    state: Arc<Mutex<ServerState>>,
-}
+```python
+#!/usr/bin/env python3
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import parse_qs
+import json
 
-struct ServerState {
-    lists: HashMap<i64, Checklist>,
-    tasks: HashMap<i64, Task>,
-    next_id: i64,
-}
+# In-memory state
+class ServerState:
+    def __init__(self):
+        self.checklists = {}
+        self.next_id = 0
 
-impl TestServer {
-    pub fn new() -> Self {
-        let state = Arc::new(Mutex::new(ServerState::default()));
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
+state = ServerState()
 
-        let state_clone = state.clone();
-        let handle = thread::spawn(move || {
-            for stream in listener.incoming() {
-                handle_request(stream.unwrap(), &state_clone);
-            }
-        });
+class CheckvistHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path == '/checklists.json':
+            self.create_checklist()
+        else:
+            self.send_error(404)
 
-        TestServer {
-            base_url: format!("http://{}", addr),
-            handle,
-            state,
+    def create_checklist(self):
+        # Check auth
+        if not self.headers.get('X-Client-Token'):
+            self.send_json_response(401, {"error": "Unauthorized"})
+            return
+
+        # Parse form data
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length).decode('utf-8')
+        params = parse_qs(body)
+
+        # Simulate real API: check for checklist[name]
+        name = params.get('checklist[name]', ['Name this list'])[0]
+
+        # Create checklist
+        checklist = {
+            'id': state.next_id,
+            'name': name,
+            # ... other fields
         }
-    }
+        state.checklists[state.next_id] = checklist
+        state.next_id += 1
 
-    pub fn base_url(&self) -> &str {
-        &self.base_url
-    }
-
-    // Test helpers
-    pub fn get_lists(&self) -> Vec<Checklist> {
-        self.state.lock().unwrap().lists.values().cloned().collect()
-    }
-}
-
-fn handle_request(stream: TcpStream, state: &Arc<Mutex<ServerState>>) {
-    let request = parse_request(stream);
-
-    let response = match (&request.method[..], &request.path[..]) {
-        ("POST", "/checklists.json") => {
-            handle_create_checklist(&request, state)
-        }
-        ("GET", "/checklists.json") => {
-            handle_list_checklists(&request, state)
-        }
-        // ... more routes
-        _ => Response::new(404, "Not Found"),
-    };
-
-    send_response(stream, response);
-}
+        self.send_json_response(201, checklist)
 ```
+
+**Key advantages:**
+- Python's `parse_qs()` correctly handles form data (no bugs)
+- Can't accidentally link into Rust tests
+- Easy to run standalone: `python3 tests/fake_server.py`
+- Zero external dependencies
 
 ### When to Add Fake Server Features
 
@@ -417,7 +497,7 @@ fn handle_request(stream: TcpStream, state: &Arc<Mutex<ServerState>>) {
 
 1. Implementing `lists create`? → Add POST /checklists.json
 2. Implementing `lists get`? → Add GET /checklists.json
-3. Need authentication? → Add token validation
+3. Need authentication? → Add token validation in each endpoint
 
 **Don't**:
 - Implement full database
@@ -481,11 +561,12 @@ CHECKVIST_TEST_MODE=real cargo test test_lists_create
 ### Migration Steps
 
 1. **Don't touch old tests yet** - they'll be deleted later
-2. **Build fake server** in `tests/fake_server/`
-3. **Write new tests** in `tests/*_test.rs` (new files)
+2. **Build fake server** in `tests/fake_server.py`
+3. **Write new tests** in `tests/e2e_*_test.rs` (new files)
 4. **For each command**:
-   - Research API behavior
-   - Implement in fake server
+   - Research API behavior with curl
+   - Implement in fake server (Python)
+   - Verify fake server with curl
    - Write tests
    - Implement code
    - Verify against real API
@@ -537,7 +618,9 @@ A: Periodic verification catches this. API is stable (15 years), so drift is unl
 A: No. Every change requires tests first. This is non-negotiable.
 
 **Q: What about unit tests for individual functions?**
-A: These are integration tests (test whole CLI). Unit tests are optional but encouraged for complex logic in `src/`.
+A: The e2e tests test the whole CLI (integration tests). Unit tests are optional but encouraged for:
+- Complex logic in `src/` (e.g., config parsing, formatting)
+- Complex logic in the fake server itself (e.g., form data parsing, auth validation)
 
 **Q: How do I test error conditions?**
 A: Fake server must simulate errors. Example:
