@@ -358,9 +358,9 @@ impl CheckvistApi {
         parent_id: Option<i64>,
     ) -> AppResult<Value> {
         let url = format!("{}/checklists/{}/tasks.json", self.base_url, list_id);
-        let mut params: Vec<(&str, String)> = vec![("content", content.to_string())];
+        let mut params: Vec<(&str, String)> = vec![("task[content]", content.to_string())];
         if let Some(parent_id) = parent_id {
-            params.push(("parent_id", parent_id.to_string()));
+            params.push(("task[parent_id]", parent_id.to_string()));
         }
         let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
         let response = self
@@ -394,13 +394,13 @@ impl CheckvistApi {
         );
         let mut params: Vec<(&str, String)> = Vec::new();
         if let Some(content) = content {
-            params.push(("content", content.to_string()));
+            params.push(("task[content]", content.to_string()));
         }
         if let Some(status) = status {
-            params.push(("status", status.to_string()));
+            params.push(("task[status]", status.to_string()));
         }
         if let Some(parent_id) = parent_id {
-            params.push(("parent_id", parent_id.to_string()));
+            params.push(("task[parent_id]", parent_id.to_string()));
         }
         let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
 
