@@ -106,7 +106,13 @@ pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
                         } else {
                             ""
                         };
-                        lines.push(format!("{}{}\t{}{}", indent, id, pri, content));
+                        let due = task
+                            .get("due")
+                            .and_then(|v| v.as_str())
+                            .and_then(|d| format_due_short(d))
+                            .map(|s| format!(" ^{}", s))
+                            .unwrap_or_default();
+                        lines.push(format!("{}{}\t{}{}{}", indent, id, pri, content, due));
                         walk(tasks, children, Some(id), depth + 1, lines);
                     }
                 }
@@ -118,4 +124,29 @@ pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
     let mut lines = Vec::new();
     walk(tasks, &children, None, 0, &mut lines);
     lines
+}
+
+fn format_due_short(due: &str) -> Option<String> {
+    let parts: Vec<&str> = due.split('/').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let month: u32 = parts[1].parse().ok()?;
+    let day: u32 = parts[2].parse().ok()?;
+    let month_name = match month {
+        1 => "Jan",
+        2 => "Feb",
+        3 => "Mar",
+        4 => "Apr",
+        5 => "May",
+        6 => "Jun",
+        7 => "Jul",
+        8 => "Aug",
+        9 => "Sep",
+        10 => "Oct",
+        11 => "Nov",
+        12 => "Dec",
+        _ => return None,
+    };
+    Some(format!("{} {}", month_name, day))
 }
