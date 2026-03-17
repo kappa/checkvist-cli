@@ -127,26 +127,7 @@ pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
 }
 
 fn format_due_short(due: &str) -> Option<String> {
-    let parts: Vec<&str> = due.split('/').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-    let month: u32 = parts[1].parse().ok()?;
-    let day: u32 = parts[2].parse().ok()?;
-    let month_name = match month {
-        1 => "Jan",
-        2 => "Feb",
-        3 => "Mar",
-        4 => "Apr",
-        5 => "May",
-        6 => "Jun",
-        7 => "Jul",
-        8 => "Aug",
-        9 => "Sep",
-        10 => "Oct",
-        11 => "Nov",
-        12 => "Dec",
-        _ => return None,
-    };
-    Some(format!("{} {}", month_name, day))
+    let normalized = due.replace('/', "-");
+    let date = chrono::NaiveDate::parse_from_str(&normalized, "%Y-%m-%d").ok()?;
+    Some(date.format("%b %-d").to_string())
 }
