@@ -106,7 +106,13 @@ pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
                         } else {
                             ""
                         };
-                        lines.push(format!("{}{}\t{}{}", indent, id, pri, content));
+                        let due = task
+                            .get("due")
+                            .and_then(|v| v.as_str())
+                            .and_then(|d| format_due_short(d))
+                            .map(|s| format!(" ^{}", s))
+                            .unwrap_or_default();
+                        lines.push(format!("{}{}\t{}{}{}", indent, id, pri, content, due));
                         walk(tasks, children, Some(id), depth + 1, lines);
                     }
                 }
@@ -118,4 +124,10 @@ pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
     let mut lines = Vec::new();
     walk(tasks, &children, None, 0, &mut lines);
     lines
+}
+
+fn format_due_short(due: &str) -> Option<String> {
+    let normalized = due.replace('/', "-");
+    let date = chrono::NaiveDate::parse_from_str(&normalized, "%Y-%m-%d").ok()?;
+    Some(date.format("%b %-d").to_string())
 }
