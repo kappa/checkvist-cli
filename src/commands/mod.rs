@@ -371,6 +371,7 @@ fn handle_tasks(
                         args.content.as_deref(),
                         status,
                         args.parent_id,
+                        args.parse,
                     )
                 },
                 login,

@@ -112,6 +112,15 @@ Task status: \fBopen\fR or \fBdone\fR.
 .TP
 .B \-\-parent\-id " " \fIPARENT_ID\fR
 Move task under a different parent.
+.TP
+.B \-\-parse
+Enable smart syntax recognition in the content. When set, the Checkvist API
+will parse \fB#tags\fR and \fB^due\fR expressions in the content and convert
+them to native tags and due dates. Without this flag, such expressions are
+treated as literal text.
+.IP
+Note: \fBtasks create\fR parses smart syntax automatically; this flag is only
+needed for \fBtasks update\fR.
 .RE
 .TP
 .B tasks remove " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR
@@ -321,6 +330,9 @@ checkvist-cli tasks update --list-id 12345 --task-id 100 --status done
 
 # Update task content
 checkvist-cli tasks update --list-id 12345 --task-id 100 --content "Buy organic milk"
+
+# Update content with smart syntax (parse #tags and ^due)
+checkvist-cli tasks update --list-id 12345 --task-id 100 --content "Buy organic milk #grocery ^tomorrow" --parse
 
 # Delete a task
 checkvist-cli tasks remove --list-id 12345 --task-id 100

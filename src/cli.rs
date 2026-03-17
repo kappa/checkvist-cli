@@ -124,6 +124,7 @@ pub struct TasksUpdateArgs {
     pub content: Option<String>,
     pub status: Option<TaskStatus>,
     pub parent_id: Option<i64>,
+    pub parse: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -909,6 +910,7 @@ fn parse_tasks_update(parser: &mut Parser, cli: &mut Cli) -> AppResult<TasksUpda
     let mut content: Option<String> = None;
     let mut status: Option<TaskStatus> = None;
     let mut parent_id: Option<i64> = None;
+    let mut parse = false;
     while let Some(arg) = parser.next().map_err(map_lexopt_error)? {
         match arg {
             Arg::Short('h') | Arg::Long("help") => {
@@ -943,6 +945,9 @@ fn parse_tasks_update(parser: &mut Parser, cli: &mut Cli) -> AppResult<TasksUpda
                     "parent id",
                 )?);
             }
+            Arg::Long("parse") => {
+                parse = true;
+            }
             Arg::Short('v') | Arg::Long("verbose") => {
                 cli.verbose = cli.verbose.saturating_add(1);
             }
@@ -972,6 +977,7 @@ fn parse_tasks_update(parser: &mut Parser, cli: &mut Cli) -> AppResult<TasksUpda
         content,
         status,
         parent_id,
+        parse,
     })
 }
 
