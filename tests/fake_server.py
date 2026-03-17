@@ -187,6 +187,11 @@ class CheckvistHandler(BaseHTTPRequestHandler):
         if m:
             return self.get_notes(int(m.group(1)), int(m.group(2)))
 
+        # OPML export for a checklist
+        m = re.match(r'^/checklists/(\d+)\.opml$', path)
+        if m:
+            return self.get_checklist_opml(int(m.group(1)))
+
         self.send_error(404, "Not Found")
 
     def do_PUT(self):
@@ -350,6 +355,47 @@ class CheckvistHandler(BaseHTTPRequestHandler):
             self.send_json_response(404, {"message": "Not found"})
         else:
             self.send_json_response(200, cl)
+
+    def get_checklist_opml(self, list_id):
+        if not self.check_auth():
+            return
+        with state.lock:
+            cl = state.checklists.get(list_id)
+        if cl is None:
+            self.send_error(404, "Not Found")
+            return
+        # Generate a simple OPML representation
+        name = cl.get('name', 'Untitled')
+        tasks = []
+        with state.lock:
+            for key, t in state.tasks.items():
+                if key[0] == list_id:
+                    tasks.append(t)
+        opml_items = ''
+        for t in tasks:
+            content = t.get('content', '')
+            status_attr = ' _status="1"' if t.get('status', 0) == 1 else ''
+            opml_items += '      <outline text="{}"{}/>\n'.format(
+                content.replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;'),
+                status_attr
+            )
+        opml = ('<?xml version="1.0"?>\n'
+                '<opml version="2.0">\n'
+                '  <head>\n'
+                '    <title>{}</title>\n'
+                '  </head>\n'
+                '  <body>\n'
+                '{}'
+                '  </body>\n'
+                '</opml>').format(
+                    name.replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;'),
+                    opml_items)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/xml')
+        data = opml.encode('utf-8')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def update_checklist(self, list_id):
         if not self.check_auth():
