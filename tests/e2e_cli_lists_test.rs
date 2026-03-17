@@ -19,7 +19,7 @@ impl PythonFakeServer {
         let port = Self::find_available_port();
 
         // Start Python server
-        let mut process = Command::new("python3")
+        let process = Command::new("python3")
             .arg("tests/fake_server.py")
             .arg(port.to_string())
             .spawn()

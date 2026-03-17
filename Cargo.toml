@@ -19,11 +19,6 @@ predicates = "3.1"
 tempfile = "3.10"
 serial_test = "3.2"
 
-[[bin]]
-name = "fake-server"
-path = "tests/fake_server_bin.rs"
-test = false
-
 [profile.release]
 codegen-units = 1
 lto = "thin"

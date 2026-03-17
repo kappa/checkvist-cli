@@ -45,10 +45,14 @@ This project previously had tests that gave **false confidence** - they passed w
 
 ```
 tests/
-├── fake_server.py         # Python fake Checkvist API (stdlib only)
-├── e2e_cli_lists_test.rs  # E2E tests for list commands
-├── e2e_cli_tasks_test.rs  # E2E tests for task commands (future)
-└── ...
+├── fake_server.py           # Python fake Checkvist API (stdlib only)
+├── e2e_cli_auth_test.rs     # E2E tests for auth commands (5 tests)
+├── e2e_cli_backup_test.rs   # E2E tests for backup command (4 tests)
+├── e2e_cli_lists_test.rs    # E2E tests for list commands (7 tests)
+├── e2e_cli_notes_test.rs    # E2E tests for note commands (11 tests)
+├── e2e_cli_tasks_test.rs    # E2E tests for task commands (16 tests)
+├── cli_help.rs              # Help text tests (5 tests, no server needed)
+└── config_and_token.rs      # Config/token logic tests (4 tests, no server needed)
 ```
 
 **Why Python for the fake server?**
@@ -554,26 +558,21 @@ CHECKVIST_TEST_MODE=real cargo test test_lists_create
 
 ### Current Status
 
-- ❌ Old test suite in `tests/` uses assertion-based stubs
-- ❌ Tests give false confidence
-- ✅ New approach documented here
+- ✅ Python fake server in `tests/fake_server.py` (stdlib only)
+- ✅ E2E tests for all commands (auth, backup, lists, notes, tasks)
+- ✅ Old stub-based tests removed
+- ✅ 52 tests total, all behavioral, all passing
 
 ### Migration Steps
 
-1. **Don't touch old tests yet** - they'll be deleted later
-2. **Build fake server** in `tests/fake_server.py`
-3. **Write new tests** in `tests/e2e_*_test.rs` (new files)
-4. **For each command**:
-   - Research API behavior with curl
-   - Implement in fake server (Python)
-   - Verify fake server with curl
-   - Write tests
-   - Implement code
-   - Verify against real API
-5. **When all commands are covered**:
-   - Delete old test files
-   - Delete `tests/common/mod.rs` (old stub server)
-   - Update CI configuration
+~~1. **Don't touch old tests yet** - they'll be deleted later~~
+~~2. **Build fake server** in `tests/fake_server.py`~~
+~~3. **Write new tests** in `tests/e2e_*_test.rs` (new files)~~
+~~4. **For each command**: Research, implement in fake server, write tests~~
+~~5. **When all commands are covered**: Delete old test files~~
+
+**Migration complete.** All old test files and the Rust stub server have been removed.
+The test suite now consists entirely of behavioral e2e tests running against the Python fake server.
 
 ---
 
