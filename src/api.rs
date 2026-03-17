@@ -387,6 +387,7 @@ impl CheckvistApi {
         content: Option<&str>,
         status: Option<&str>,
         parent_id: Option<i64>,
+        parse: bool,
     ) -> AppResult<Value> {
         let url = format!(
             "{}/checklists/{}/tasks/{}.json",
@@ -401,6 +402,9 @@ impl CheckvistApi {
         }
         if let Some(parent_id) = parent_id {
             params.push(("task[parent_id]", parent_id.to_string()));
+        }
+        if parse {
+            params.push(("parse", "true".to_string()));
         }
         let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
 

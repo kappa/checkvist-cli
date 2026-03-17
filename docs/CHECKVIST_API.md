@@ -220,7 +220,15 @@ PUT /checklists/{id}/tasks/{task_id}.(json|xml)
 - `task[content]`: string - new content (optional)
 - `task[parent_id]`: integer - move to new parent (optional)
 - `task[status]`: integer - new status (optional)
+- `parse`: boolean - if `true`, recognize smart syntax (`#tags`, `^due`) in content (optional)
 - Other task fields as needed
+
+**Smart Syntax Behavior:**
+- **Create** (`POST`): Checkvist automatically parses `#tags` and `^due` from task content.
+  Including `#mytag` in the content will create a native clickable tag.
+- **Update** (`PUT`): Smart syntax is **NOT** parsed by default. You must pass `parse=true`
+  to enable recognition of `#tags` and `^due` in the updated content.
+- **Import**: Requires `parse_tasks=true` to enable smart syntax recognition.
 
 **Response:** Updated task object
 
