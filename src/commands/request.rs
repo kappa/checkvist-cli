@@ -101,7 +101,12 @@ pub fn format_task_tree(tasks: &[Value]) -> Vec<String> {
                         task.get("content").and_then(|v| v.as_str()),
                     ) {
                         let indent = "  ".repeat(depth);
-                        lines.push(format!("{}{}\t{}", indent, id, content));
+                        let pri = if task.get("priority").and_then(|v| v.as_u64()) == Some(1) {
+                            "! "
+                        } else {
+                            ""
+                        };
+                        lines.push(format!("{}{}\t{}{}", indent, id, pri, content));
                         walk(tasks, children, Some(id), depth + 1, lines);
                     }
                 }
