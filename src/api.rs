@@ -431,7 +431,7 @@ impl CheckvistApi {
         );
 
         self.log_request(
-            "PUT",
+            "POST",
             &url,
             &[("Accept", "application/json"), ("X-Client-Token", token)],
             None,
@@ -439,7 +439,7 @@ impl CheckvistApi {
 
         let response = self
             .agent
-            .put(&url)
+            .post(&url)
             .set("Accept", "application/json")
             .set("X-Client-Token", token)
             .call()
@@ -455,11 +455,15 @@ impl CheckvistApi {
 
         self.log_response(status, &body);
 
-        serde_json::from_str(&body).map_err(|err| {
+        // API returns an array; extract the first element
+        let arr: Vec<Value> = serde_json::from_str(&body).map_err(|err| {
             AppError::new(
                 ErrorKind::ApiData,
                 format!("invalid JSON from task close: {}", err),
             )
+        })?;
+        arr.into_iter().next().ok_or_else(|| {
+            AppError::new(ErrorKind::ApiData, String::from("empty response from task close"))
         })
     }
 
@@ -470,7 +474,7 @@ impl CheckvistApi {
         );
 
         self.log_request(
-            "PUT",
+            "POST",
             &url,
             &[("Accept", "application/json"), ("X-Client-Token", token)],
             None,
@@ -478,7 +482,7 @@ impl CheckvistApi {
 
         let response = self
             .agent
-            .put(&url)
+            .post(&url)
             .set("Accept", "application/json")
             .set("X-Client-Token", token)
             .call()
@@ -494,11 +498,15 @@ impl CheckvistApi {
 
         self.log_response(status, &body);
 
-        serde_json::from_str(&body).map_err(|err| {
+        // API returns an array; extract the first element
+        let arr: Vec<Value> = serde_json::from_str(&body).map_err(|err| {
             AppError::new(
                 ErrorKind::ApiData,
                 format!("invalid JSON from task reopen: {}", err),
             )
+        })?;
+        arr.into_iter().next().ok_or_else(|| {
+            AppError::new(ErrorKind::ApiData, String::from("empty response from task reopen"))
         })
     }
 
