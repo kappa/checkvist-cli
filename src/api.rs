@@ -424,6 +424,84 @@ impl CheckvistApi {
         })
     }
 
+    pub fn close_task(&self, token: &str, list_id: i64, task_id: i64) -> AppResult<Value> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}/close.json",
+            self.base_url, list_id, task_id
+        );
+
+        self.log_request(
+            "PUT",
+            &url,
+            &[("Accept", "application/json"), ("X-Client-Token", token)],
+            None,
+        );
+
+        let response = self
+            .agent
+            .put(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        let status = response.status();
+        let body = response.into_string().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("failed to read close response: {}", err),
+            )
+        })?;
+
+        self.log_response(status, &body);
+
+        serde_json::from_str(&body).map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from task close: {}", err),
+            )
+        })
+    }
+
+    pub fn reopen_task(&self, token: &str, list_id: i64, task_id: i64) -> AppResult<Value> {
+        let url = format!(
+            "{}/checklists/{}/tasks/{}/reopen.json",
+            self.base_url, list_id, task_id
+        );
+
+        self.log_request(
+            "PUT",
+            &url,
+            &[("Accept", "application/json"), ("X-Client-Token", token)],
+            None,
+        );
+
+        let response = self
+            .agent
+            .put(&url)
+            .set("Accept", "application/json")
+            .set("X-Client-Token", token)
+            .call()
+            .map_err(map_network_error)?;
+
+        let status = response.status();
+        let body = response.into_string().map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("failed to read reopen response: {}", err),
+            )
+        })?;
+
+        self.log_response(status, &body);
+
+        serde_json::from_str(&body).map_err(|err| {
+            AppError::new(
+                ErrorKind::ApiData,
+                format!("invalid JSON from task reopen: {}", err),
+            )
+        })
+    }
+
     pub fn delete_task(&self, token: &str, list_id: i64, task_id: i64) -> AppResult<()> {
         let url = format!(
             "{}/checklists/{}/tasks/{}.json",

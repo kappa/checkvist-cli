@@ -397,6 +397,44 @@ fn handle_tasks(
             )?;
             Ok(())
         }
+        TasksCommand::Close(args) => {
+            let token = ensure_token(api, config)?;
+            let login = || {
+                api.login(
+                    &config.username,
+                    &config.remote_key,
+                    config.token2fa.as_deref(),
+                )
+            };
+            let task = request::with_token_retry(
+                api,
+                &config.token_file,
+                token,
+                |api, token| api.close_task(token, args.list_id, args.task_id),
+                login,
+            )?;
+            print_tasks(&[task], format)?;
+            Ok(())
+        }
+        TasksCommand::Reopen(args) => {
+            let token = ensure_token(api, config)?;
+            let login = || {
+                api.login(
+                    &config.username,
+                    &config.remote_key,
+                    config.token2fa.as_deref(),
+                )
+            };
+            let task = request::with_token_retry(
+                api,
+                &config.token_file,
+                token,
+                |api, token| api.reopen_task(token, args.list_id, args.task_id),
+                login,
+            )?;
+            print_tasks(&[task], format)?;
+            Ok(())
+        }
     }
 }
 

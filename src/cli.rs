@@ -103,6 +103,8 @@ pub enum TasksCommand {
     Create(TasksCreateArgs),
     Update(TasksUpdateArgs),
     Remove(TasksRemoveArgs),
+    Close(TasksCloseArgs),
+    Reopen(TasksReopenArgs),
 }
 
 #[derive(Debug, Clone)]
@@ -129,6 +131,18 @@ pub struct TasksUpdateArgs {
 
 #[derive(Debug, Clone)]
 pub struct TasksRemoveArgs {
+    pub list_id: i64,
+    pub task_id: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct TasksCloseArgs {
+    pub list_id: i64,
+    pub task_id: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct TasksReopenArgs {
     pub list_id: i64,
     pub task_id: i64,
 }
@@ -774,6 +788,18 @@ fn parse_tasks(parser: &mut Parser, cli: &mut Cli) -> AppResult<CommandOutcome> 
                             args,
                         ))))
                     }
+                    "close" => {
+                        let args = parse_tasks_close(parser, cli)?;
+                        Ok(CommandOutcome::Command(Commands::Tasks(TasksCommand::Close(
+                            args,
+                        ))))
+                    }
+                    "reopen" => {
+                        let args = parse_tasks_reopen(parser, cli)?;
+                        Ok(CommandOutcome::Command(Commands::Tasks(TasksCommand::Reopen(
+                            args,
+                        ))))
+                    }
                     _ => Err(usage_error(format!("unknown tasks command: {sub}"), USAGE_TASKS)),
                 };
             }
@@ -1026,6 +1052,100 @@ fn parse_tasks_remove(parser: &mut Parser, cli: &mut Cli) -> AppResult<TasksRemo
     let list_id = list_id.ok_or_else(|| usage_error("list id is required", USAGE_TASKS_REMOVE))?;
     let task_id = task_id.ok_or_else(|| usage_error("task id is required", USAGE_TASKS_REMOVE))?;
     Ok(TasksRemoveArgs { list_id, task_id })
+}
+
+fn parse_tasks_close(parser: &mut Parser, cli: &mut Cli) -> AppResult<TasksCloseArgs> {
+    let mut list_id: Option<i64> = None;
+    let mut task_id: Option<i64> = None;
+    while let Some(arg) = parser.next().map_err(map_lexopt_error)? {
+        match arg {
+            Arg::Short('h') | Arg::Long("help") => {
+                print_help_tasks_close();
+                return Err(help_return());
+            }
+            Arg::Long("list-id") | Arg::Long("list") => {
+                list_id = Some(parse_i64(
+                    parser.value().map_err(map_lexopt_error)?,
+                    "list id",
+                )?);
+            }
+            Arg::Long("task-id") => {
+                task_id = Some(parse_i64(
+                    parser.value().map_err(map_lexopt_error)?,
+                    "task id",
+                )?);
+            }
+            Arg::Short('v') | Arg::Long("verbose") => {
+                cli.verbose = cli.verbose.saturating_add(1);
+            }
+            Arg::Long("format") => {
+                parse_global_format(parser, cli)?;
+            }
+            Arg::Long("profile") => {
+                parse_global_profile(parser, cli)?;
+            }
+            Arg::Long("base-url") => {
+                parse_global_base_url(parser, cli)?;
+            }
+            Arg::Long("auth-file") => {
+                parse_global_auth_file(parser, cli)?;
+            }
+            Arg::Long("token-file") => {
+                parse_global_token_file(parser, cli)?;
+            }
+            other => return Err(unexpected_argument(other, USAGE_TASKS_CLOSE)),
+        }
+    }
+    let list_id = list_id.ok_or_else(|| usage_error("list id is required", USAGE_TASKS_CLOSE))?;
+    let task_id = task_id.ok_or_else(|| usage_error("task id is required", USAGE_TASKS_CLOSE))?;
+    Ok(TasksCloseArgs { list_id, task_id })
+}
+
+fn parse_tasks_reopen(parser: &mut Parser, cli: &mut Cli) -> AppResult<TasksReopenArgs> {
+    let mut list_id: Option<i64> = None;
+    let mut task_id: Option<i64> = None;
+    while let Some(arg) = parser.next().map_err(map_lexopt_error)? {
+        match arg {
+            Arg::Short('h') | Arg::Long("help") => {
+                print_help_tasks_reopen();
+                return Err(help_return());
+            }
+            Arg::Long("list-id") | Arg::Long("list") => {
+                list_id = Some(parse_i64(
+                    parser.value().map_err(map_lexopt_error)?,
+                    "list id",
+                )?);
+            }
+            Arg::Long("task-id") => {
+                task_id = Some(parse_i64(
+                    parser.value().map_err(map_lexopt_error)?,
+                    "task id",
+                )?);
+            }
+            Arg::Short('v') | Arg::Long("verbose") => {
+                cli.verbose = cli.verbose.saturating_add(1);
+            }
+            Arg::Long("format") => {
+                parse_global_format(parser, cli)?;
+            }
+            Arg::Long("profile") => {
+                parse_global_profile(parser, cli)?;
+            }
+            Arg::Long("base-url") => {
+                parse_global_base_url(parser, cli)?;
+            }
+            Arg::Long("auth-file") => {
+                parse_global_auth_file(parser, cli)?;
+            }
+            Arg::Long("token-file") => {
+                parse_global_token_file(parser, cli)?;
+            }
+            other => return Err(unexpected_argument(other, USAGE_TASKS_REOPEN)),
+        }
+    }
+    let list_id = list_id.ok_or_else(|| usage_error("list id is required", USAGE_TASKS_REOPEN))?;
+    let task_id = task_id.ok_or_else(|| usage_error("task id is required", USAGE_TASKS_REOPEN))?;
+    Ok(TasksReopenArgs { list_id, task_id })
 }
 
 fn parse_backup(parser: &mut Parser, cli: &mut Cli) -> AppResult<CommandOutcome> {
@@ -1571,6 +1691,14 @@ fn print_help_tasks_remove() {
     println!("{HELP_TASKS_REMOVE}");
 }
 
+fn print_help_tasks_close() {
+    println!("{HELP_TASKS_CLOSE}");
+}
+
+fn print_help_tasks_reopen() {
+    println!("{HELP_TASKS_REOPEN}");
+}
+
 fn print_help_backup() {
     println!("{HELP_BACKUP}");
 }
@@ -1611,6 +1739,9 @@ const USAGE_TASKS_CREATE: &str = "checkvist-cli tasks create --list <LIST_ID> --
 const USAGE_TASKS_UPDATE: &str =
     "checkvist-cli tasks update --list <LIST_ID> --task-id <TASK_ID> [OPTIONS]";
 const USAGE_TASKS_REMOVE: &str = "checkvist-cli tasks remove --list <LIST_ID> --task-id <TASK_ID>";
+const USAGE_TASKS_CLOSE: &str = "checkvist-cli tasks close --list <LIST_ID> --task-id <TASK_ID>";
+const USAGE_TASKS_REOPEN: &str =
+    "checkvist-cli tasks reopen --list <LIST_ID> --task-id <TASK_ID>";
 const USAGE_BACKUP: &str = "checkvist-cli backup [OPTIONS]";
 const USAGE_NOTES: &str = "checkvist-cli notes [OPTIONS] [COMMAND]";
 const USAGE_NOTES_LIST: &str = "checkvist-cli notes list --list <LIST_ID> --task <TASK_ID>";
@@ -1720,6 +1851,14 @@ tasks
 
 Usage:
   checkvist-cli tasks <COMMAND>
+
+Commands:
+  get       List tasks in a checklist
+  create    Create a new task
+  update    Update an existing task
+  remove    Delete a task
+  close     Close (complete) a task
+  reopen    Reopen a closed task
 ";
 
 const HELP_TASKS_GET: &str = "\
@@ -1748,6 +1887,24 @@ tasks remove
 
 Usage:
   checkvist-cli tasks remove --list <LIST_ID> --task-id <TASK_ID>
+";
+
+const HELP_TASKS_CLOSE: &str = "\
+tasks close
+
+Usage:
+  checkvist-cli tasks close --list <LIST_ID> --task-id <TASK_ID>
+
+Close (complete) a task. The task status changes to done.
+";
+
+const HELP_TASKS_REOPEN: &str = "\
+tasks reopen
+
+Usage:
+  checkvist-cli tasks reopen --list <LIST_ID> --task-id <TASK_ID>
+
+Reopen a closed task. The task status changes back to open.
 ";
 
 const HELP_BACKUP: &str = "\

@@ -125,6 +125,12 @@ needed for \fBtasks update\fR.
 .TP
 .B tasks remove " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR
 Delete a task from a checklist.
+.TP
+.B tasks close " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR
+Close (complete) a task. Sets the task status to done. Returns the updated task. Uses the dedicated Checkvist close endpoint which properly handles subtask completion semantics.
+.TP
+.B tasks reopen " " \fB\-\-list\-id\fR " " \fILIST_ID\fR " " \fB\-\-task\-id\fR " " \fITASK_ID\fR
+Reopen a previously closed task. Sets the task status back to open. Returns the updated task.
 .SS NOTE COMMANDS
 .TP
 .B notes
@@ -336,6 +342,12 @@ checkvist-cli tasks update --list-id 12345 --task-id 100 --content "Buy organic 
 
 # Delete a task
 checkvist-cli tasks remove --list-id 12345 --task-id 100
+
+# Close (complete) a task
+checkvist-cli tasks close --list-id 12345 --task-id 100
+
+# Reopen a closed task
+checkvist-cli tasks reopen --list-id 12345 --task-id 100
 .RE
 .fi
 .SS Working with Notes

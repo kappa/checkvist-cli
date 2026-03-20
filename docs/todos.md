@@ -100,32 +100,16 @@ All 7 e2e tests pass, including:
 ---
 
 ### 2. `tasks create` returns 400 Bad Request
-**Status:** 🐛 Bug
+**Status:** ✅ FIXED (via fix/rails-style-task-params)
 **Severity:** High
 **Discovered:** 2025-12-22
 
 **Description:**
 Creating tasks fails with "unexpected status 400: Bad Request" error.
 
-**Steps to reproduce:**
-```bash
-checkvist-cli tasks create --list-id 944404 --content "Test task"
-# Exit code: 5
-# Error: unexpected status 400: Bad Request
-```
+**Root Cause:** Same as bug #1 — parameters needed Rails-style `task[content]`, `task[parent_id]` format.
 
-**Context:**
-This error occurred when trying to add tasks to a newly created list (ID: 944404). The list was readable (`lists show` and `tasks get` both worked), but task creation failed.
-
-**Possible causes:**
-- May be related to the list having placeholder name "Name this list"
-- Could be an issue with request formatting
-- May be a server-side validation issue
-
-**Investigation needed:**
-- Try creating tasks in an existing, properly named list
-- Check the actual HTTP request being sent
-- Verify against Checkvist API documentation
+**Fix:** PR `fix/rails-style-task-params` updated task create and update to use `task[content]`, `task[status]`, `task[parent_id]`.
 
 ---
 
